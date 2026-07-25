@@ -1,0 +1,53 @@
+{
+    "$schema": "https://getcomposer.org/schema.json",
+    "name": "innovativesolutions-abp/laravel-tmetric",
+    "description": "A typed, read-only Laravel client for the TMetric API.",
+    "type": "library",
+    "license": "MIT",
+    "keywords": [
+        "laravel",
+        "time-tracking",
+        "tmetric"
+    ],
+    "require": {
+        "php": "^8.2",
+        "illuminate/contracts": "^12.62.0",
+        "illuminate/http": "^12.62.0",
+        "illuminate/support": "^12.62.0"
+    },
+    "require-dev": {
+        "laravel/pint": "^1.24",
+        "laravel/framework": "12.62.0",
+        "orchestra/testbench": "^10.0",
+        "phpunit/phpunit": "^11.5"
+    },
+    "autoload": {
+        "psr-4": {
+            "InnovativeSolutions\\TMetric\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "InnovativeSolutions\\TMetric\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "test": "phpunit",
+        "format": "pint"
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "InnovativeSolutions\\TMetric\\TMetricServiceProvider"
+            ],
+            "aliases": {
+                "TMetric": "InnovativeSolutions\\TMetric\\Facades\\TMetric"
+            }
+        }
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

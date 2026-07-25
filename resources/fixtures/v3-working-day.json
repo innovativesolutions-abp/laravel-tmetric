@@ -1,0 +1,18 @@
+[
+    {
+        "id": 7001,
+        "startTime": "2026-07-25T08:00:00Z",
+        "endTime": "2026-07-25T09:00:00Z",
+        "note": "Synthetic work",
+        "project": {
+            "id": 9001,
+            "name": "Example Project"
+        },
+        "task": {
+            "id": 8001,
+            "name": "EX-1"
+        },
+        "isBillable": true,
+        "isInvoiced": false
+    }
+]

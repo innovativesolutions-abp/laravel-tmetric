@@ -1,0 +1,11 @@
+[
+    {
+        "startTime": "2026-07-25T08:00:00Z",
+        "details": [
+            {
+                "activitySeconds": 30,
+                "totalSeconds": 600
+            }
+        ]
+    }
+]

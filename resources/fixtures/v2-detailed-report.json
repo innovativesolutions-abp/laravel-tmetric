@@ -1,0 +1,19 @@
+[
+    {
+        "day": "2026-07-25",
+        "startTime": "2026-07-25T08:00:00Z",
+        "endTime": "2026-07-25T09:00:00Z",
+        "user": "Synthetic Developer",
+        "userProfileId": 101,
+        "project": "Example Project",
+        "projectId": 9001,
+        "client": "Example Client",
+        "clientId": 5001,
+        "projectTaskId": 8001,
+        "description": "Synthetic work",
+        "issueId": "EX-1",
+        "issueUrl": "https://jira.example.test/browse/EX-1",
+        "duration": 3600,
+        "billableDuration": 3600
+    }
+]
