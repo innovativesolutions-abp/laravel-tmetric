@@ -49,6 +49,7 @@ $entries = TMetric::connection()->v3()->timeEntries(
 );
 
 $statuses = TMetric::connection()->v3()->timeTrackingStatuses();
+$reportUsers = TMetric::connection()->v3()->reportUsers();
 ```
 
 For database-backed connection settings, a consuming ERP may build a runtime connection after decrypting the token inside the request/job:
@@ -72,8 +73,9 @@ Available v3 reads:
 - time entries for a user and date range;
 - latest time entry;
 - current time-tracking statuses.
+- workspace users visible to the current user in project reports.
 
-The official v3 `3.2.1` schema does not document `GET /members` or a general `GET /projects`. Those reads are therefore not invented by this package.
+The official v3 `3.2.1` schema does not document `GET /members` or a general `GET /projects`. The package uses the documented project-report filter for the workspace users visible to the current token, but it does not treat that list as a writable members directory.
 
 ## Legacy v2
 

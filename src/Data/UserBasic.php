@@ -1,0 +1,25 @@
+<?php
+
+namespace InnovativeSolutions\TMetric\Data;
+
+final readonly class UserBasic extends DataObject
+{
+    /** @param array<string, mixed> $raw */
+    public function __construct(
+        array $raw,
+        public string $id,
+        public ?string $name,
+    ) {
+        parent::__construct($raw);
+    }
+
+    /** @param array<string, mixed> $data */
+    public static function fromArray(array $data): self
+    {
+        return new self(
+            $data,
+            self::requiredId($data, 'id'),
+            self::nullableString($data, 'name'),
+        );
+    }
+}

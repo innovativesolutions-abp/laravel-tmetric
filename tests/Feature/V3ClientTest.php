@@ -102,4 +102,26 @@ final class V3ClientTest extends TestCase
         self::assertSame('7001', $status->activeTimer?->id);
         self::assertNull($status->activeTimer?->endTime);
     }
+
+    public function test_it_reads_workspace_users_visible_to_reports(): void
+    {
+        TMetric::fake([[
+            'teams' => [],
+            'users' => [
+                ['id' => 101, 'name' => 'Synthetic Developer'],
+                ['id' => 102, 'name' => 'Synthetic Reviewer'],
+            ],
+        ]]);
+
+        $users = TMetric::connection()->v3()->reportUsers();
+
+        self::assertCount(2, $users);
+        self::assertSame('101', $users->all()[0]->id);
+        self::assertSame('Synthetic Reviewer', $users->all()[1]->name);
+
+        TMetric::assertRequested(
+            fn (Request $request): bool => $request->operation === 'reports.project_filter'
+                && $request->path === '/accounts/42001/reports/projects/filter',
+        );
+    }
 }

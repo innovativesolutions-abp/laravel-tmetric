@@ -27,8 +27,9 @@ Implemented documented reads:
 | Time entries | `GET /accounts/{accountId}/timeentries` |
 | Latest time entry | `GET /accounts/{accountId}/timeentries/latest` |
 | Tracking statuses | `GET /accounts/{accountId}/timeentries/statuses` |
+| Report-visible workspace users | `GET /accounts/{accountId}/reports/projects/filter` |
 
-The schema does not document a v3 `GET` on `/accounts/{accountId}/members` or `/accounts/{accountId}/projects`. It documents `PATCH` for members and `POST` for projects. The package does not infer unsupported reads.
+The schema does not document a v3 `GET` on `/accounts/{accountId}/members` or `/accounts/{accountId}/projects`. It documents `PATCH` for members and `POST` for projects. The package does not infer unsupported reads. Workspace-user discovery uses the documented project-report filter and therefore represents users whose report data is visible to the current token, not an administrative members snapshot.
 
 The time-entry list accepts `userId`, `startDate`, and `endDate`. The schema does not describe a cursor or `updated_since` filter.
 

@@ -10,8 +10,10 @@ use InnovativeSolutions\TMetric\Data\Task;
 use InnovativeSolutions\TMetric\Data\TimeEntry;
 use InnovativeSolutions\TMetric\Data\TimeEntryProject;
 use InnovativeSolutions\TMetric\Data\TimeTrackingStatus;
+use InnovativeSolutions\TMetric\Data\UserBasic;
 use InnovativeSolutions\TMetric\Data\UserProfile;
 use InnovativeSolutions\TMetric\Exceptions\ConfigurationException;
+use InnovativeSolutions\TMetric\Exceptions\SchemaDriftException;
 use InnovativeSolutions\TMetric\Http\ConnectionConfig;
 use InnovativeSolutions\TMetric\Http\Request;
 
@@ -102,6 +104,29 @@ final readonly class V3Client
             TimeTrackingStatus::fromArray(...),
             ['teamId' => $teamId === null ? null : (string) $teamId],
         );
+    }
+
+    /** @return DataCollection<UserBasic> */
+    public function reportUsers(): DataCollection
+    {
+        $response = $this->transport->send(
+            $this->connection,
+            new Request(
+                'reports.project_filter',
+                'GET',
+                "/accounts/{$this->accountId()}/reports/projects/filter",
+            ),
+        );
+
+        $users = $response->data['users'] ?? [];
+
+        if (! is_array($users) || ! array_is_list($users)) {
+            throw new SchemaDriftException(
+                'TMetric report user filter must contain a users list.',
+            );
+        }
+
+        return DataCollection::fromRows($users, UserBasic::fromArray(...));
     }
 
     /**
