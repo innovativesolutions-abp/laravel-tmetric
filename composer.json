@@ -10,6 +10,7 @@
         "tmetric"
     ],
     "require": {
+        "ext-curl": "*",
         "php": "^8.2",
         "illuminate/contracts": "^12.62.0",
         "illuminate/http": "^12.62.0",

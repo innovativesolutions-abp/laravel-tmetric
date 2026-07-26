@@ -23,6 +23,7 @@ final class LaravelHttpTransportTest extends TestCase
 {
     public function test_it_sends_bearer_auth_without_exposing_it_in_safe_context(): void
     {
+        $options = $this->recordRequestOptions();
         Http::fake(['tmetric.test/*' => Http::response(['id' => 101], 200)]);
 
         $transport = new LaravelHttpTransport(app(Factory::class), new RecordingSleeper);
@@ -32,6 +33,9 @@ final class LaravelHttpTransportTest extends TestCase
         self::assertSame(101, $response->data['id']);
         self::assertArrayNotHasKey('headers', $request->safeContext());
         self::assertStringNotContainsString('synthetic-secret-token', serialize($request->safeContext()));
+        self::assertSame('socks5h://tmetric-egress.test:1080', $options[0]['proxy']);
+        self::assertFalse($options[0]['allow_redirects']);
+        self::assertTrue($options[0]['verify']);
 
         Http::assertSent(fn ($sent): bool => $sent->hasHeader('Authorization', 'Bearer synthetic-secret-token'));
     }
@@ -54,6 +58,23 @@ final class LaravelHttpTransportTest extends TestCase
                 && str_contains($sent->url(), 'UseUtcTime=true')
                 && ! str_contains($sent->url(), 'Ignored'),
         );
+    }
+
+    public function test_generic_connection_without_proxy_omits_the_proxy_option_but_keeps_tls_verification(): void
+    {
+        $options = $this->recordRequestOptions();
+        Http::fake(['tmetric.test/*' => Http::response(['id' => 101], 200)]);
+        $config = config('tmetric.connections.default');
+        unset($config['proxy']);
+
+        $this->transport()->send(
+            ConnectionConfig::fromArray('default', $config),
+            new Request('user.get', 'GET', '/user'),
+        );
+
+        self::assertArrayNotHasKey('proxy', $options[0]);
+        self::assertTrue($options[0]['verify']);
+        self::assertFalse($options[0]['allow_redirects']);
     }
 
     public function test_it_does_not_retry_authentication_failures_or_leak_response_content(): void
@@ -130,6 +151,7 @@ final class LaravelHttpTransportTest extends TestCase
 
     public function test_it_retries_transient_server_errors_and_can_recover(): void
     {
+        $options = $this->recordRequestOptions();
         Http::fakeSequence()
             ->push(['error' => 'temporary'], 503)
             ->push(['id' => 101], 200);
@@ -143,11 +165,22 @@ final class LaravelHttpTransportTest extends TestCase
         self::assertCount(1, $sleeper->milliseconds);
         self::assertGreaterThanOrEqual(0, $sleeper->milliseconds[0]);
         Http::assertSentCount(2);
+        self::assertSame([
+            'socks5h://tmetric-egress.test:1080',
+            'socks5h://tmetric-egress.test:1080',
+        ], array_column($options->getArrayCopy(), 'proxy'));
+        self::assertSame([false, false], array_column($options->getArrayCopy(), 'allow_redirects'));
+        self::assertSame([true, true], array_column($options->getArrayCopy(), 'verify'));
     }
 
     public function test_it_reports_exhausted_connection_failures_without_raw_transport_text(): void
     {
-        Http::fake(['tmetric.test/*' => Http::failedConnection('Bearer synthetic-secret-token')]);
+        $options = $this->recordRequestOptions();
+        Http::fake([
+            'tmetric.test/*' => Http::failedConnection(
+                'Bearer synthetic-secret-token via socks5h://proxy-secret.test:1080',
+            ),
+        ]);
 
         try {
             $this->transport()->send($this->connection(), new Request('user.get', 'GET', '/user'));
@@ -156,10 +189,19 @@ final class LaravelHttpTransportTest extends TestCase
             self::assertSame(3, $exception->attempts);
             self::assertStringNotContainsString('synthetic-secret-token', $exception->getMessage());
             self::assertStringNotContainsString('synthetic-secret-token', (string) $exception);
+            self::assertStringNotContainsString('proxy-secret.test', $exception->getMessage());
+            self::assertStringNotContainsString('proxy-secret.test', (string) $exception);
             self::assertNull($exception->getPrevious());
         }
 
         Http::assertSentCount(3);
+        self::assertSame([
+            'socks5h://tmetric-egress.test:1080',
+            'socks5h://tmetric-egress.test:1080',
+            'socks5h://tmetric-egress.test:1080',
+        ], array_column($options->getArrayCopy(), 'proxy'));
+        self::assertSame([false, false, false], array_column($options->getArrayCopy(), 'allow_redirects'));
+        self::assertSame([true, true, true], array_column($options->getArrayCopy(), 'verify'));
     }
 
     public function test_exhausted_server_failure_is_typed(): void
@@ -194,5 +236,24 @@ final class LaravelHttpTransportTest extends TestCase
     private function connection(): ConnectionConfig
     {
         return ConnectionConfig::fromArray('default', config('tmetric.connections.default'));
+    }
+
+    /** @return \ArrayObject<int, array<string, mixed>> */
+    private function recordRequestOptions(): \ArrayObject
+    {
+        $options = new \ArrayObject;
+
+        app(Factory::class)->globalMiddleware(
+            static fn (callable $handler): callable => static function ($request, array $requestOptions) use (
+                $handler,
+                $options,
+            ) {
+                $options->append($requestOptions);
+
+                return $handler($request, $requestOptions);
+            },
+        );
+
+        return $options;
     }
 }

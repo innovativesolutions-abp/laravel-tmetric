@@ -29,4 +29,10 @@ final readonly class Connection
 
         return new LegacyV2Client($this->config, $this->transport);
     }
+
+    /** @return never */
+    public function __serialize(): array
+    {
+        throw new \LogicException('TMetric connections cannot be serialized.');
+    }
 }

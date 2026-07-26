@@ -14,6 +14,7 @@ return [
             'connect_timeout' => 5,
             'max_attempts' => 3,
             'max_retry_delay_seconds' => 30,
+            'proxy' => env('TMETRIC_PROXY_URL'),
         ],
     ],
 ];

@@ -34,12 +34,21 @@ final class LaravelHttpTransport implements Transport
             $attempt++;
 
             try {
+                $options = [
+                    'allow_redirects' => false,
+                    'verify' => true,
+                ];
+
+                if ($connection->proxy() !== null) {
+                    $options['proxy'] = $connection->proxy()->uri();
+                }
+
                 $response = $this->http
                     ->withToken($connection->token())
                     ->acceptJson()
                     ->timeout($connection->timeout)
                     ->connectTimeout($connection->connectTimeout)
-                    ->withOptions(['allow_redirects' => false])
+                    ->withOptions($options)
                     ->send($request->method, $baseUrl.$request->path, [
                         'query' => $this->queryString($request->query),
                     ]);

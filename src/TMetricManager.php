@@ -10,6 +10,7 @@ final readonly class TMetricManager
 {
     /** @param array<string, mixed> $config */
     public function __construct(
+        #[\SensitiveParameter]
         private array $config,
         private Transport $transport,
     ) {}
@@ -30,11 +31,26 @@ final readonly class TMetricManager
     }
 
     /** @param array<string, mixed> $config */
-    public function connect(array $config, string $name = 'runtime'): Connection
+    public function connect(#[\SensitiveParameter] array $config, string $name = 'runtime'): Connection
     {
         return new Connection(
             ConnectionConfig::fromArray($name, $config),
             $this->transport,
         );
+    }
+
+    /** @return never */
+    public function __serialize(): array
+    {
+        throw new \LogicException('TMetric manager cannot be serialized.');
+    }
+
+    /** @return array<string, string> */
+    public function __debugInfo(): array
+    {
+        return [
+            'config' => '[REDACTED]',
+            'transport' => get_debug_type($this->transport),
+        ];
     }
 }

@@ -64,6 +64,16 @@ final class V3ClientTest extends TestCase
         TMetric::connection()->v3()->user();
     }
 
+    public function test_fake_supports_a_generic_connection_without_proxy_configuration(): void
+    {
+        config()->set('tmetric.connections.default.proxy');
+        TMetric::fake([['id' => 101]]);
+
+        $profile = TMetric::connection()->v3()->user();
+
+        self::assertSame('101', $profile->id);
+    }
+
     public function test_runtime_connection_can_be_created_for_database_backed_consumers(): void
     {
         TMetric::fake([[
@@ -74,6 +84,7 @@ final class V3ClientTest extends TestCase
         $profile = TMetric::connect([
             'token' => 'runtime-synthetic-token',
             'account_id' => '42001',
+            'proxy' => 'socks5h://tmetric-egress.test:1080',
         ])->v3()->user();
 
         self::assertSame('101', $profile->id);

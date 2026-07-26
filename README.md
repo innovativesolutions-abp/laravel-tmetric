@@ -8,6 +8,7 @@ A typed, read-only Laravel client for TMetric. The package deliberately contains
 ## Requirements
 
 - PHP 8.2 or newer
+- PHP cURL extension with SOCKS5 hostname support
 - Laravel `^12.62.0`
 
 The development suite is pinned to Laravel `12.62.0`, the version currently locked and running in ABA ERP. Consumers may use later compatible Laravel 12 patch releases.
@@ -32,7 +33,19 @@ composer require innovativesolutions-abp/laravel-tmetric:dev-main
 php artisan vendor:publish --tag=tmetric-config
 ```
 
-Set `TMETRIC_TOKEN` and `TMETRIC_ACCOUNT_ID` in the consuming application's protected environment. Do not commit either value.
+Set `TMETRIC_TOKEN` and `TMETRIC_ACCOUNT_ID` in the consuming application's
+protected environment. To route this client through SOCKS, also set
+`TMETRIC_PROXY_URL=socks5h://host:port`. Local-DNS `socks5://`, HTTP proxies,
+credentials, paths, queries, and fragments are rejected. Do not commit any of
+these values.
+
+Proxy support is optional at this generic package layer. A consuming
+application that requires controlled egress must enforce the presence of the
+proxy before constructing a connection. When configured, this package never
+retries that TMetric client request without the selected proxy. It does not
+prevent a consuming application or unrelated HTTP client from using the host's
+ordinary network route; mandatory policy and network-level egress controls
+remain the consumer's responsibility.
 
 ## Read-only usage
 
@@ -59,10 +72,17 @@ $connection = TMetric::connect([
     'token' => $decryptedToken,
     'account_id' => $accountId,
     'legacy_enabled' => false,
+    'proxy' => 'socks5h://tmetric-egress:1080',
 ]);
 ```
 
 Pass only the ERP connection record ID through queue payloads. Resolve and decrypt the token immediately before creating the runtime connection; `ConnectionConfig` deliberately refuses serialization.
+
+The example proxy contains no credentials because it is expected to be isolated
+inside a private application network. `socks5h` delegates hostname resolution
+to the proxy path while the package explicitly requires HTTPS certificate and
+hostname verification end-to-end in PHP. Redirect following remains disabled,
+and every bounded retry uses the same proxy.
 
 Available v3 reads:
 
@@ -111,7 +131,10 @@ TMetric::assertRequested(
 );
 ```
 
-An unplanned fake request fails closed. Package tests also call Laravel's `Http::preventStrayRequests()`.
+An unplanned fake request fails closed. Package tests also call Laravel's
+`Http::preventStrayRequests()`. Tests for a consuming application's mandatory
+egress policy should provide a synthetic valid proxy URI and separately verify
+that the application rejects an absent proxy before calling this package.
 
 ## Error model
 
@@ -119,7 +142,9 @@ The client maps authentication, authorization, not-found, rate-limit, transient 
 
 HTTP 206 is rejected with `PartialContentException` rather than returning a silently truncated collection. The official tasks endpoint may return only its first 500 tasks and does not document a pagination mechanism.
 
-Exception messages and diagnostic contexts never contain the Bearer token, Authorization header, or raw response body.
+Exception messages and diagnostic contexts never contain the Bearer token,
+Authorization header, proxy URI, or raw response body. Proxy, connection, and
+manager configuration cannot be serialized.
 
 ## API evidence
 

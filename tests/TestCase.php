@@ -32,6 +32,7 @@ abstract class TestCase extends Orchestra
             'connect_timeout' => 2,
             'max_attempts' => 3,
             'max_retry_delay_seconds' => 30,
+            'proxy' => 'socks5h://tmetric-egress.test:1080',
         ]);
     }
 }

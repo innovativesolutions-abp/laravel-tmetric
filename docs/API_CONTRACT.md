@@ -12,6 +12,26 @@ No authenticated TMetric request was made during this verification.
 
 The initial package baseline is PHP 8.2+ and Laravel `^12.62.0`. The development suite is pinned to Laravel `12.62.0`, matching the version currently locked and running in ABA ERP. Laravel 11 is intentionally outside the support matrix.
 
+## Transport policy
+
+Connections may specify an explicit `socks5h://host:port` proxy. When present,
+PHP cURL support for remote-hostname SOCKS5 is required. Invalid proxy
+configuration is rejected before transport. `socks5://`, HTTP(S) proxy schemes,
+userinfo, paths, queries, and fragments are rejected.
+
+The Laravel HTTP transport supplies the same scalar Guzzle `proxy` option on
+every bounded attempt, keeps redirects disabled, and never retries without the
+proxy. The `h` delegates destination hostname resolution through the proxy
+path. TLS verification remains end-to-end against the requested TMetric
+hostname.
+
+The package preserves the configured transport on every attempt and never
+falls back from a configured proxy to a direct retry. The consuming application
+remains responsible for requiring the proxy when its policy demands it, plus
+proxy reachability, infrastructure allowlists, workload isolation, and any
+network-level direct-egress controls. Proxy-bearing configuration is redacted
+from debug output and cannot be serialized.
+
 ## v3
 
 Official OpenAPI version: `3.2.1`. Base path: `/api/v3`.
