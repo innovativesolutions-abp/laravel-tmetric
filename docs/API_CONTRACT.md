@@ -14,9 +14,10 @@ The initial package baseline is PHP 8.2+ and Laravel `^12.62.0`. The development
 
 ## Transport policy
 
-Connections may specify an explicit `socks5h://host:port` proxy. When present,
+Connections may specify an explicit `socks5h://host:port` proxy or a protected,
+credential-free HTTP CONNECT proxy as `http://host:port`. When SOCKS is used,
 PHP cURL support for remote-hostname SOCKS5 is required. Invalid proxy
-configuration is rejected before transport. `socks5://`, HTTP(S) proxy schemes,
+configuration is rejected before transport. `socks5://`, HTTPS proxy URLs,
 userinfo, paths, queries, and fragments are rejected.
 
 The Laravel HTTP transport supplies the same scalar Guzzle `proxy` option on
@@ -24,6 +25,10 @@ every bounded attempt, keeps redirects disabled, and never retries without the
 proxy. The `h` delegates destination hostname resolution through the proxy
 path. TLS verification remains end-to-end against the requested TMetric
 hostname.
+
+For an HTTP proxy, Guzzle uses CONNECT for HTTPS requests. The package still
+validates the TMetric server certificate and hostname end-to-end and never
+retries without the selected proxy.
 
 The package preserves the configured transport on every attempt and never
 falls back from a configured proxy to a direct retry. The consuming application

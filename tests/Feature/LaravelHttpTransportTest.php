@@ -77,6 +77,23 @@ final class LaravelHttpTransportTest extends TestCase
         self::assertFalse($options[0]['allow_redirects']);
     }
 
+    public function test_it_passes_a_generic_http_connect_proxy_to_guzzle_with_tls_verification(): void
+    {
+        $options = $this->recordRequestOptions();
+        Http::fake(['tmetric.test/*' => Http::response(['id' => 101], 200)]);
+        $config = config('tmetric.connections.default');
+        $config['proxy'] = 'http://private-proxy.test:8890';
+
+        $this->transport()->send(
+            ConnectionConfig::fromArray('default', $config),
+            new Request('user.get', 'GET', '/user'),
+        );
+
+        self::assertSame('http://private-proxy.test:8890', $options[0]['proxy']);
+        self::assertTrue($options[0]['verify']);
+        self::assertFalse($options[0]['allow_redirects']);
+    }
+
     public function test_it_does_not_retry_authentication_failures_or_leak_response_content(): void
     {
         Http::fake(['tmetric.test/*' => Http::response([

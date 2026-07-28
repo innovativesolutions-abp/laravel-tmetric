@@ -4,6 +4,7 @@ All notable changes will be documented in this file.
 
 ## Unreleased
 
+- Added credential-free HTTP CONNECT proxy support alongside `socks5h`.
 - Added optional typed `socks5h` proxy support with remote DNS, no direct retry
   after a proxy is selected, redaction, and serialization guards.
 - Added PHP cURL as a runtime requirement and verified that retries preserve

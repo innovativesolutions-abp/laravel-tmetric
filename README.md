@@ -35,9 +35,10 @@ php artisan vendor:publish --tag=tmetric-config
 
 Set `TMETRIC_TOKEN` and `TMETRIC_ACCOUNT_ID` in the consuming application's
 protected environment. To route this client through SOCKS, also set
-`TMETRIC_PROXY_URL=socks5h://host:port`. Local-DNS `socks5://`, HTTP proxies,
-credentials, paths, queries, and fragments are rejected. Do not commit any of
-these values.
+`TMETRIC_PROXY_URL=socks5h://host:port` or a protected HTTP CONNECT proxy such
+as `TMETRIC_PROXY_URL=http://host:port`. Local-DNS `socks5://`, HTTPS proxy
+URLs, credentials, paths, queries, and fragments are rejected. Do not commit
+any of these values.
 
 Proxy support is optional at this generic package layer. A consuming
 application that requires controlled egress must enforce the presence of the
@@ -83,6 +84,21 @@ inside a private application network. `socks5h` delegates hostname resolution
 to the proxy path while the package explicitly requires HTTPS certificate and
 hostname verification end-to-end in PHP. Redirect following remains disabled,
 and every bounded retry uses the same proxy.
+
+For an HTTP proxy:
+
+```php
+$connection = TMetric::connect([
+    'token' => $decryptedToken,
+    'account_id' => $accountId,
+    'proxy' => 'http://private-proxy:8890',
+]);
+```
+
+The package passes this endpoint to Guzzle as an HTTP proxy. HTTPS TMetric
+requests use CONNECT, so TLS certificate and hostname verification remain
+end-to-end between PHP and TMetric. Use a credential-free endpoint only on a
+private network with source and destination restrictions.
 
 Available v3 reads:
 

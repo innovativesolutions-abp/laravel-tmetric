@@ -18,7 +18,7 @@ final readonly class ConnectionConfig
         public int $connectTimeout,
         public int $maxAttempts,
         public int $maxRetryDelaySeconds,
-        private ?Socks5Proxy $proxy,
+        private ?Proxy $proxy,
     ) {
         if ($this->token === '') {
             throw new ConfigurationException("TMetric connection [{$this->name}] has no token.");
@@ -58,13 +58,13 @@ final readonly class ConnectionConfig
         return $this->token;
     }
 
-    public function proxy(): ?Socks5Proxy
+    public function proxy(): ?Proxy
     {
         return $this->proxy;
     }
 
     /** @param array<string, mixed> $config */
-    private static function proxyFromConfig(#[\SensitiveParameter] array $config): ?Socks5Proxy
+    private static function proxyFromConfig(#[\SensitiveParameter] array $config): ?Proxy
     {
         $proxy = $config['proxy'] ?? null;
 
@@ -73,10 +73,10 @@ final readonly class ConnectionConfig
         }
 
         if (! is_string($proxy)) {
-            throw new ConfigurationException('TMetric proxy must be a valid socks5h URI.');
+            throw new ConfigurationException('TMetric proxy must be a valid socks5h or HTTP URI.');
         }
 
-        return Socks5Proxy::fromUri($proxy);
+        return Proxy::fromUri($proxy);
     }
 
     /** @return never */

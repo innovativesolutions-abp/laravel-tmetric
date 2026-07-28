@@ -4,10 +4,7 @@ namespace InnovativeSolutions\TMetric\Http;
 
 use InnovativeSolutions\TMetric\Exceptions\ConfigurationException;
 
-/**
- * @deprecated Use Proxy::fromUri() for new integrations.
- */
-final readonly class Socks5Proxy
+final readonly class Proxy
 {
     private function __construct(
         #[\SensitiveParameter]
@@ -16,19 +13,16 @@ final readonly class Socks5Proxy
 
     public static function fromUri(#[\SensitiveParameter] string $uri): self
     {
-        if (! extension_loaded('curl') || ! defined('CURLPROXY_SOCKS5_HOSTNAME')) {
-            throw new ConfigurationException('TMetric socks5h proxy support requires the PHP cURL extension.');
-        }
-
         if ($uri === '' || trim($uri) !== $uri || preg_match('/[\x00-\x20\x7f]/', $uri) === 1) {
-            throw new ConfigurationException('TMetric proxy must be a valid socks5h URI.');
+            throw new ConfigurationException('TMetric proxy must be a valid socks5h or HTTP URI.');
         }
 
         $parts = parse_url($uri);
+        $scheme = strtolower((string) ($parts['scheme'] ?? ''));
 
         if (
             ! is_array($parts)
-            || strtolower((string) ($parts['scheme'] ?? '')) !== 'socks5h'
+            || ! in_array($scheme, ['http', 'socks5h'], true)
             || ! is_string($parts['host'] ?? null)
             || $parts['host'] === ''
             || ! isset($parts['port'])
@@ -41,8 +35,15 @@ final readonly class Socks5Proxy
             || (isset($parts['path']) && $parts['path'] !== '')
         ) {
             throw new ConfigurationException(
-                'TMetric proxy must use socks5h with a host and port, without credentials, path, query, or fragment.',
+                'TMetric proxy must use socks5h or http with a host and port, without credentials, path, query, or fragment.',
             );
+        }
+
+        if (
+            $scheme === 'socks5h'
+            && (! extension_loaded('curl') || ! defined('CURLPROXY_SOCKS5_HOSTNAME'))
+        ) {
+            throw new ConfigurationException('TMetric socks5h proxy support requires the PHP cURL extension.');
         }
 
         return new self($uri);
