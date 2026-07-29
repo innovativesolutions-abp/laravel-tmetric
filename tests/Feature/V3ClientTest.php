@@ -18,7 +18,13 @@ final class V3ClientTest extends TestCase
                 'id' => 101,
                 'email' => 'developer@example.test',
                 'name' => 'Synthetic Developer',
-                'timeZone' => 'Europe/Warsaw',
+                'timeZone' => [
+                    'id' => 'Europe/Warsaw',
+                    'displayName' => '(UTC+01:00) Warsaw',
+                    'winterOffset' => 60,
+                    'summerOffset' => 120,
+                    'currentOffset' => 120,
+                ],
                 'activeAccountId' => 42001,
             ],
             [[
@@ -42,6 +48,7 @@ final class V3ClientTest extends TestCase
 
         self::assertSame('101', $user->id);
         self::assertSame('42001', $user->activeAccountId);
+        self::assertSame('Europe/Warsaw', $user->timeZone);
         self::assertCount(1, $entries);
         self::assertInstanceOf(TimeEntry::class, $entries->all()[0]);
         self::assertNull($entries->all()[0]->endTime);
@@ -72,6 +79,18 @@ final class V3ClientTest extends TestCase
         $profile = TMetric::connection()->v3()->user();
 
         self::assertSame('101', $profile->id);
+    }
+
+    public function test_user_profile_remains_compatible_with_a_string_timezone(): void
+    {
+        TMetric::fake([[
+            'id' => 101,
+            'timeZone' => 'Europe/Warsaw',
+        ]]);
+
+        $profile = TMetric::connection()->v3()->user();
+
+        self::assertSame('Europe/Warsaw', $profile->timeZone);
     }
 
     public function test_runtime_connection_can_be_created_for_database_backed_consumers(): void
