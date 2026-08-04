@@ -60,6 +60,115 @@ final class LaravelHttpTransportTest extends TestCase
         );
     }
 
+    public function test_it_sends_a_json_body_without_exposing_raw_values_in_safe_context(): void
+    {
+        Http::fake(['tmetric.test/*' => Http::response(['id' => 7001], 200)]);
+        $request = new Request(
+            operation: 'time_entries.update_project',
+            method: 'PUT',
+            path: '/accounts/42001/timeentries/7001',
+            body: ['project' => ['id' => '9002']],
+            retryTransient: false,
+        );
+
+        $this->transport()->send($this->connection(), $request);
+
+        Http::assertSent(fn ($sent): bool => $sent->method() === 'PUT'
+            && $sent->data() === ['project' => ['id' => '9002']]);
+        self::assertArrayHasKey('body_hash', $request->safeContext());
+        self::assertArrayNotHasKey('body', $request->safeContext());
+        self::assertStringNotContainsString('9002', serialize($request->safeContext()));
+    }
+
+    public function test_it_accepts_an_empty_success_response_for_a_write(): void
+    {
+        Http::fake(['tmetric.test/*' => Http::response('', 204)]);
+
+        $response = $this->transport()->send(
+            $this->connection(),
+            new Request(
+                operation: 'time_entries.update_project',
+                method: 'PUT',
+                path: '/accounts/42001/timeentries/7001',
+                body: ['project' => ['id' => '9002']],
+            ),
+        );
+
+        self::assertSame(204, $response->status);
+        self::assertSame([], $response->data);
+    }
+
+    public function test_it_rejects_an_empty_200_response_for_a_write(): void
+    {
+        Http::fake(['tmetric.test/*' => Http::response('', 200)]);
+
+        $this->expectException(MalformedResponseException::class);
+
+        $this->transport()->send(
+            $this->connection(),
+            new Request(
+                operation: 'time_entries.update_project',
+                method: 'PUT',
+                path: '/accounts/42001/timeentries/7001',
+                body: ['project' => ['id' => '9002']],
+            ),
+        );
+    }
+
+    public function test_a_custom_ambiguous_write_is_never_retried_by_default(): void
+    {
+        Http::fake(['tmetric.test/*' => Http::response(['error' => 'temporary'], 503)]);
+
+        try {
+            $this->transport()->send(
+                $this->connection(),
+                new Request(
+                    operation: 'time_entries.update_project',
+                    method: 'PUT',
+                    path: '/accounts/42001/timeentries/7001',
+                    body: ['project' => ['id' => '9002']],
+                    retryTransient: true,
+                ),
+            );
+            self::fail('Expected transient exception.');
+        } catch (TransientException $exception) {
+            self::assertSame(1, $exception->attempts);
+        }
+
+        Http::assertSentCount(1);
+    }
+
+    public function test_a_write_connection_failure_is_never_retried_by_default(): void
+    {
+        Http::fake(['tmetric.test/*' => Http::failedConnection('synthetic connection failure')]);
+
+        try {
+            $this->transport()->send(
+                $this->connection(),
+                new Request(
+                    operation: 'time_entries.update_project',
+                    method: 'PUT',
+                    path: '/accounts/42001/timeentries/7001',
+                    body: ['project' => ['id' => '9002']],
+                ),
+            );
+            self::fail('Expected transport exception.');
+        } catch (TransportException $exception) {
+            self::assertSame(1, $exception->attempts);
+        }
+
+        Http::assertSentCount(1);
+    }
+
+    public function test_a_blank_200_read_response_is_rejected(): void
+    {
+        Http::fake(['tmetric.test/*' => Http::response('', 200)]);
+
+        $this->expectException(MalformedResponseException::class);
+
+        $this->transport()->send($this->connection(), new Request('user.get', 'GET', '/user'));
+    }
+
     public function test_generic_connection_without_proxy_omits_the_proxy_option_but_keeps_tls_verification(): void
     {
         $options = $this->recordRequestOptions();

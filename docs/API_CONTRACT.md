@@ -37,6 +37,14 @@ proxy reachability, infrastructure allowlists, workload isolation, and any
 network-level direct-egress controls. Proxy-bearing configuration is redacted
 from debug output and cannot be serialized.
 
+Automatic transient retries are enabled by default only for safe read methods
+(`GET`, `HEAD`, and `OPTIONS`). Mutations are single-attempt operations because
+a connection loss, timeout, `408`, `429`, or `5xx` can occur after TMetric has
+already applied the change. The consuming application must own durable
+idempotency, unknown-outcome reconciliation, and any later retry decision.
+The generic request object's read-retry flag cannot enable retries for a
+mutating HTTP method.
+
 ## v3
 
 Official OpenAPI version: `3.2.1`. Base path: `/api/v3`.
@@ -53,6 +61,16 @@ Implemented documented reads:
 | Latest time entry | `GET /accounts/{accountId}/timeentries/latest` |
 | Tracking statuses | `GET /accounts/{accountId}/timeentries/statuses` |
 | Report-visible workspace users | `GET /accounts/{accountId}/reports/projects/filter` |
+
+Implemented documented writes:
+
+| Operation | Endpoint | Body | Success |
+| --- | --- | --- | --- |
+| Change time-entry project | `PUT /accounts/{accountId}/timeentries/{timeEntryId}` | `{"project":{"id":"{projectId}"}}` | Updated time-entry JSON (`200`) or no body (`204`, returned as `null`) |
+
+This package only transports and parses that mutation. It does not decide the
+correct project, match Jira identities, persist an outbox, retry ambiguous
+outcomes, or implement ERP authorization and reconciliation rules.
 
 The schema does not document a v3 `GET` on `/accounts/{accountId}/members` or `/accounts/{accountId}/projects`. It documents `PATCH` for members and `POST` for projects. The package does not infer unsupported reads. Workspace-user discovery uses the documented project-report filter and therefore represents users whose report data is visible to the current token, not an administrative members snapshot.
 

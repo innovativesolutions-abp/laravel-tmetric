@@ -28,6 +28,18 @@ abstract readonly class DataObject
     }
 
     /** @param array<string, mixed> $data */
+    final protected static function requiredNonEmptyId(array $data, string $field): string
+    {
+        $value = self::requiredId($data, $field);
+
+        if (trim($value) === '') {
+            throw new SchemaDriftException("TMetric response field [{$field}] must be a non-empty ID.");
+        }
+
+        return $value;
+    }
+
+    /** @param array<string, mixed> $data */
     final protected static function nullableId(array $data, string $field): ?string
     {
         $value = $data[$field] ?? null;
@@ -50,6 +62,18 @@ abstract readonly class DataObject
 
         if ($value !== null && ! is_string($value)) {
             throw new SchemaDriftException("TMetric response field [{$field}] must be a string or null.");
+        }
+
+        return $value;
+    }
+
+    /** @param array<string, mixed> $data */
+    final protected static function requiredString(array $data, string $field): string
+    {
+        $value = $data[$field] ?? null;
+
+        if (! is_string($value) || trim($value) === '') {
+            throw new SchemaDriftException("TMetric response field [{$field}] must be a non-empty string.");
         }
 
         return $value;

@@ -95,6 +95,22 @@ final readonly class V3Client
         return $response->data === [] ? null : TimeEntry::fromArray($response->data);
     }
 
+    public function updateTimeEntryProject(string|int $timeEntryId, string|int $projectId): ?TimeEntry
+    {
+        $response = $this->transport->send(
+            $this->connection,
+            new Request(
+                operation: 'time_entries.update_project',
+                method: 'PUT',
+                path: "/accounts/{$this->accountId()}/timeentries/".rawurlencode((string) $timeEntryId),
+                body: ['project' => ['id' => (string) $projectId]],
+                retryTransient: false,
+            ),
+        );
+
+        return $response->data === [] ? null : TimeEntry::fromArray($response->data);
+    }
+
     /** @return DataCollection<TimeTrackingStatus> */
     public function timeTrackingStatuses(string|int|null $teamId = null): DataCollection
     {

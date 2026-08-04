@@ -43,17 +43,22 @@ final class LaravelHttpTransport implements Transport
                     $options['proxy'] = $connection->proxy()->uri();
                 }
 
+                $requestOptions = [
+                    'query' => $this->queryString($request->query),
+                ];
+                if ($request->body !== []) {
+                    $requestOptions['json'] = $request->body;
+                }
+
                 $response = $this->http
                     ->withToken($connection->token())
                     ->acceptJson()
                     ->timeout($connection->timeout)
                     ->connectTimeout($connection->connectTimeout)
                     ->withOptions($options)
-                    ->send($request->method, $baseUrl.$request->path, [
-                        'query' => $this->queryString($request->query),
-                    ]);
+                    ->send($request->method, $baseUrl.$request->path, $requestOptions);
             } catch (LaravelConnectionException) {
-                if ($attempt < $connection->maxAttempts) {
+                if ($request->retryTransient && $attempt < $connection->maxAttempts) {
                     $this->sleeper->sleepMilliseconds($this->backoffMilliseconds($attempt, null, $connection));
 
                     continue;
@@ -77,7 +82,9 @@ final class LaravelHttpTransport implements Transport
             $status = $response->status();
             $retryAfter = $this->retryAfterSeconds($response->header('Retry-After'));
 
-            if ($this->isRetryableStatus($status) && $attempt < $connection->maxAttempts) {
+            if ($request->retryTransient
+                && $this->isRetryableStatus($status)
+                && $attempt < $connection->maxAttempts) {
                 $this->sleeper->sleepMilliseconds($this->backoffMilliseconds($attempt, $retryAfter, $connection));
 
                 continue;
@@ -94,6 +101,19 @@ final class LaravelHttpTransport implements Transport
 
             if ($status < 200 || $status >= 300) {
                 throw $this->statusException($request, $status, $attempt, $retryAfter);
+            }
+
+            if (trim($response->body()) === '' && $status === 204) {
+                return new Response($status, [], $response->headers(), $attempt);
+            }
+
+            if (trim($response->body()) === '') {
+                throw new MalformedResponseException(
+                    "TMetric returned an empty response for operation [{$request->operation}].",
+                    $request->operation,
+                    $status,
+                    $attempt,
+                );
             }
 
             try {

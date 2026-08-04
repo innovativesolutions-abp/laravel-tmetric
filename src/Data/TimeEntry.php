@@ -15,6 +15,7 @@ final readonly class TimeEntry extends DataObject
         public bool $invoiced,
         public ?string $projectId,
         public ?string $taskId,
+        public ?TaskBasic $task = null,
     ) {
         parent::__construct($raw);
     }
@@ -35,6 +36,7 @@ final readonly class TimeEntry extends DataObject
             (bool) ($data['isInvoiced'] ?? false),
             self::nullableId($project, 'id'),
             self::nullableId($task, 'id'),
+            $task === [] ? null : TaskBasic::fromArray($task),
         );
     }
 }

@@ -4,6 +4,7 @@ namespace InnovativeSolutions\TMetric\Tests\Feature;
 
 use DateTimeImmutable;
 use InnovativeSolutions\TMetric\Data\TimeEntry;
+use InnovativeSolutions\TMetric\Exceptions\SchemaDriftException;
 use InnovativeSolutions\TMetric\Exceptions\UnexpectedRequestException;
 use InnovativeSolutions\TMetric\Facades\TMetric;
 use InnovativeSolutions\TMetric\Http\Request;
@@ -33,7 +34,21 @@ final class V3ClientTest extends TestCase
                 'endTime' => null,
                 'note' => 'Synthetic entry',
                 'project' => ['id' => 9001, 'name' => 'Example project'],
-                'task' => ['id' => 8001, 'name' => 'EX-1'],
+                'task' => [
+                    'id' => 8001,
+                    'name' => 'EX-1',
+                    'externalLink' => [
+                        'caption' => 'EX-1',
+                        'iconUrl' => 'https://jira.example.test/icon.png',
+                        'link' => 'https://jira.example.test/browse/EX-1',
+                        'issueId' => 'EX-1',
+                    ],
+                    'integration' => [
+                        'id' => 5001,
+                        'url' => 'https://jira.example.test',
+                        'type' => 'jira',
+                    ],
+                ],
                 'isBillable' => true,
                 'isInvoiced' => false,
             ]],
@@ -53,12 +68,86 @@ final class V3ClientTest extends TestCase
         self::assertInstanceOf(TimeEntry::class, $entries->all()[0]);
         self::assertNull($entries->all()[0]->endTime);
         self::assertSame('9001', $entries->all()[0]->projectId);
+        self::assertSame('EX-1', $entries->all()[0]->task?->externalLink?->issueId);
+        self::assertSame('https://jira.example.test', $entries->all()[0]->task?->integration?->url);
 
         TMetric::assertRequested(
             fn (Request $request): bool => $request->operation === 'time_entries.list'
                 && $request->query['userId'] === '101'
                 && $request->query['startDate'] === '2026-03-28'
                 && $request->query['endDate'] === '2026-03-29',
+        );
+    }
+
+    public function test_it_parses_external_jira_identity_from_workspace_tasks(): void
+    {
+        TMetric::fake([[[
+            'id' => 8001,
+            'name' => 'Visible display name is not an identifier',
+            'projectId' => 9001,
+            'externalLink' => [
+                'caption' => 'EX-1',
+                'iconUrl' => 'https://jira.example.test/icon.png',
+                'link' => 'https://jira.example.test/browse/EX-1',
+                'issueId' => 'EX-1',
+            ],
+            'integration' => [
+                'id' => 5001,
+                'url' => 'https://jira.example.test',
+                'type' => 'jira',
+            ],
+        ]]]);
+
+        $task = TMetric::connection()->v3()->tasks()->all()[0];
+
+        self::assertSame('EX-1', $task->externalLink?->issueId);
+        self::assertSame('https://jira.example.test/browse/EX-1', $task->externalLink?->link);
+        self::assertSame('jira', $task->integration?->type);
+    }
+
+    public function test_it_rejects_a_blank_external_issue_identity(): void
+    {
+        TMetric::fake([[['id' => 8001, 'externalLink' => [
+            'caption' => 'EX-1',
+            'iconUrl' => null,
+            'link' => 'https://jira.example.test/browse/EX-1',
+            'issueId' => '  ',
+        ]]]]);
+
+        $this->expectException(SchemaDriftException::class);
+
+        TMetric::connection()->v3()->tasks();
+    }
+
+    public function test_missing_optional_external_identity_remains_compatible(): void
+    {
+        TMetric::fake([[['id' => 8001, 'name' => 'Internal task', 'projectId' => 9001]]]);
+
+        $task = TMetric::connection()->v3()->tasks()->all()[0];
+
+        self::assertNull($task->externalLink);
+        self::assertNull($task->integration);
+    }
+
+    public function test_it_updates_a_time_entry_project_without_enabling_transport_retries(): void
+    {
+        TMetric::fake([[
+            'id' => 7001,
+            'startTime' => '2026-03-28T22:30:00+01:00',
+            'endTime' => '2026-03-28T23:00:00+01:00',
+            'project' => ['id' => 9002],
+            'task' => ['id' => 8001, 'name' => 'EX-1'],
+        ]]);
+
+        $entry = TMetric::connection()->v3()->updateTimeEntryProject('7001', '9002');
+
+        self::assertSame('9002', $entry?->projectId);
+        TMetric::assertRequested(
+            fn (Request $request): bool => $request->operation === 'time_entries.update_project'
+                && $request->method === 'PUT'
+                && $request->path === '/accounts/42001/timeentries/7001'
+                && $request->body === ['project' => ['id' => '9002']]
+                && $request->retryTransient === false,
         );
     }
 

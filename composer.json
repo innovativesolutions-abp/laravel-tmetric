@@ -1,7 +1,7 @@
 {
     "$schema": "https://getcomposer.org/schema.json",
     "name": "innovativesolutions-abp/laravel-tmetric",
-    "description": "A typed, read-only Laravel client for the TMetric API.",
+    "description": "A typed Laravel client for documented TMetric read and narrowly scoped write operations.",
     "type": "library",
     "license": "MIT",
     "keywords": [

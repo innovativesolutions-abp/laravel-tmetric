@@ -1,6 +1,6 @@
 # Laravel TMetric
 
-A typed, read-only Laravel client for TMetric. The package deliberately contains no Jira, calendar, AI, database, synchronization, or ERP business logic.
+A typed Laravel client for documented TMetric reads and narrowly scoped writes. The package deliberately contains no Jira, calendar, AI, database, synchronization, reconciliation, idempotency-outbox, or ERP business logic.
 
 > [!IMPORTANT]
 > The current `main` branch is an unreleased development version. There is no tag or Packagist registration yet. The legacy v2 surface is disabled by default and has been validated against the official schema and synthetic fixtures, not a real TMetric workspace.
@@ -48,7 +48,7 @@ prevent a consuming application or unrelated HTTP client from using the host's
 ordinary network route; mandatory policy and network-level egress controls
 remain the consumer's responsibility.
 
-## Read-only usage
+## Usage
 
 ```php
 use DateTimeImmutable;
@@ -65,6 +65,25 @@ $entries = TMetric::connection()->v3()->timeEntries(
 $statuses = TMetric::connection()->v3()->timeTrackingStatuses();
 $reportUsers = TMetric::connection()->v3()->reportUsers();
 ```
+
+The documented v3 time-entry project update is also available:
+
+```php
+$updated = TMetric::connection()->v3()->updateTimeEntryProject(
+    timeEntryId: '7001',
+    projectId: '9002',
+);
+```
+
+This sends `PUT /accounts/{accountId}/timeentries/{timeEntryId}` with
+`{"project":{"id":"9002"}}`. TMetric may return an updated time entry or an
+empty `204`, represented by `null`. Mutations are never retried automatically:
+a connection loss, timeout, `408`, `429`, or `5xx` can have an unknown outcome.
+The transport refuses automatic retries for mutating HTTP methods even if a
+custom request tries to enable its read-retry flag. Consumers must persist
+their own idempotent outbox, reconcile against a later
+authoritative synchronization, and decide whether a retry is safe. Read
+requests retain bounded transient retries.
 
 For database-backed connection settings, a consuming ERP may build a runtime connection after decrypting the token inside the request/job:
 
@@ -111,6 +130,10 @@ Available v3 reads:
 - current time-tracking statuses.
 - workspace users visible to the current user in project reports.
 
+Available v3 writes:
+
+- change the project assigned to an existing time entry.
+
 The official v3 `3.2.1` schema does not document `GET /members` or a general `GET /projects`. The package uses the documented project-report filter for the workspace users visible to the current token, but it does not treat that list as a writable members directory.
 
 ## Legacy v2
@@ -154,7 +177,7 @@ that the application rejects an absent proxy before calling this package.
 
 ## Error model
 
-The client maps authentication, authorization, not-found, rate-limit, transient transport, malformed JSON, and schema-drift failures to typed exceptions. Only timeouts, connection failures, HTTP 408/429, and server errors are retried. Retries are bounded and honor `Retry-After`.
+The client maps authentication, authorization, not-found, rate-limit, transient transport, malformed JSON, and schema-drift failures to typed exceptions. For safe read methods, timeouts, connection failures, HTTP 408/429, and server errors are retried with bounded attempts honoring `Retry-After`. Mutating methods fail closed after the first ambiguous result and are not automatically retried.
 
 HTTP 206 is rejected with `PartialContentException` rather than returning a silently truncated collection. The official tasks endpoint may return only its first 500 tasks and does not document a pagination mechanism.
 
