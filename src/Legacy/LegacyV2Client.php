@@ -135,7 +135,7 @@ final readonly class LegacyV2Client
             }
         }
 
-        $payload = $project->raw();
+        $payload = $this->normalizeNumericIds($project->raw());
         $members = is_array($payload['members'] ?? null) ? array_values($payload['members']) : [];
         $members[] = [
             'userProfileId' => $profileId,
@@ -157,6 +157,31 @@ final readonly class LegacyV2Client
         );
 
         return Project::fromArray($response->data === [] ? $payload : $response->data);
+    }
+
+    private function normalizeNumericIds(mixed $value, ?string $key = null): mixed
+    {
+        if (is_array($value)) {
+            $normalized = [];
+            foreach ($value as $childKey => $childValue) {
+                $normalized[$childKey] = $this->normalizeNumericIds(
+                    $childValue,
+                    is_string($childKey) ? $childKey : null,
+                );
+            }
+
+            return $normalized;
+        }
+
+        if ($key !== null && ($key === 'id' || str_ends_with($key, 'Id'))) {
+            if ($value === null) {
+                return null;
+            }
+
+            return $this->numericId($value, $key);
+        }
+
+        return $value;
     }
 
     private function rawAccountId(): string

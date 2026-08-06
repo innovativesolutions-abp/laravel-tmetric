@@ -104,18 +104,18 @@ final class LegacyV2ClientTest extends TestCase
     public function test_it_reads_a_full_project_and_adds_one_member_without_dropping_fields(): void
     {
         $project = [
-            'projectId' => 9001,
-            'accountId' => 42001,
+            'projectId' => '9001',
+            'accountId' => '42001',
             'projectName' => 'Data Plans',
             'projectStatus' => 1,
             'isBillable' => true,
             'notes' => 'Preserve every field',
             'members' => [[
-                'userProfileId' => 101,
-                'projectId' => 9001,
+                'userProfileId' => '101',
+                'projectId' => '9001',
                 'role' => 1,
             ]],
-            'groups' => [['projectId' => 9001, 'userGroupId' => 55]],
+            'groups' => [['projectId' => '9001', 'userGroupId' => '55']],
         ];
         TMetric::fake([$project, [
             ...$project,
@@ -136,8 +136,15 @@ final class LegacyV2ClientTest extends TestCase
             && $request->method === 'PUT'
             && $request->legacy
             && $request->retryTransient === false
+            && $request->body['projectId'] === 9001
+            && $request->body['accountId'] === 42001
             && $request->body['notes'] === 'Preserve every field'
             && $request->body['groups'] === [['projectId' => 9001, 'userGroupId' => 55]]
+            && $request->body['members'][0] === [
+                'userProfileId' => 101,
+                'projectId' => 9001,
+                'role' => 1,
+            ]
             && $request->body['members'][1] === [
                 'userProfileId' => 102,
                 'projectId' => 9001,
