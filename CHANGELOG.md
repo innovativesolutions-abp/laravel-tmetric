@@ -4,6 +4,9 @@ All notable changes will be documented in this file.
 
 ## Unreleased
 
+- Added full-body numeric-ID time-entry project updates, typed legacy project
+  and member reads, idempotent full-project member addition, and bounded
+  sanitized negative-response details.
 - Added credential-free HTTP CONNECT proxy support alongside `socks5h`.
 - Added optional typed `socks5h` proxy support with remote DNS, no direct retry
   after a proxy is selected, redaction, and serialization guards.

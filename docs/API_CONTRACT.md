@@ -66,7 +66,7 @@ Implemented documented writes:
 
 | Operation | Endpoint | Body | Success |
 | --- | --- | --- | --- |
-| Change time-entry project | `PUT /accounts/{accountId}/timeentries/{timeEntryId}` | `{"project":{"id":"{projectId}"}}` | Updated time-entry JSON (`200`) or no body (`204`, returned as `null`) |
+| Change time-entry project | `PUT /accounts/{accountId}/timeentries/{timeEntryId}` | Numeric project/task/tag IDs plus preserved task, tags, start/end and optional note from a fresh complete entry | Updated time-entry JSON (`200`) or no body (`204`, returned as `null`) |
 
 This package only transports and parses that mutation. It does not decide the
 correct project, match Jira identities, persist an outbox, retry ambiguous
@@ -89,10 +89,27 @@ Implemented documented reads:
 | Detailed report | `GET /api/reports/detailed` |
 | Numeric Timeline | `GET /api/timeline/{accountId}` |
 | User time entries | `GET /api/accounts/{accountId}/timeentries/{userProfileId}` |
+| Full project | `GET /api/accounts/{accountId}/projects/{projectId}` |
+
+Implemented documented write:
+
+| Operation | Endpoint | Safety boundary |
+| --- | --- | --- |
+| Add one project member | `PUT /api/accounts/{accountId}/projects/{projectId}` | Preserves the complete fresh project body, adds one numeric `members[]` item, never retries, and requires a consumer-owned serialization/readback policy |
 
 The legacy time-entry request documents `StartTime`, `EndTime`, `useUtcTime`, `includeDeleted`, and `truncate`.
 
 The Timeline schema contains nested details with `activitySeconds` and `totalSeconds`. It also describes process/window fields, which this package intentionally removes from its DTOs for privacy.
+
+The legacy Project schema contains full project settings and `members[]`.
+Because the endpoint is a full-resource PUT without a documented ETag, the
+package does not retry it and does not claim concurrency safety. A consuming
+application must lock per project, GET immediately before PUT, and verify the
+complete member set after the write.
+
+Negative HTTP exceptions expose only bounded decoded JSON with sensitive keys
+redacted, plus body length and SHA-256. They never expose headers, credentials,
+proxy configuration, or an unbounded raw response body.
 
 ## Unresolved until an authorized real-workspace spike
 

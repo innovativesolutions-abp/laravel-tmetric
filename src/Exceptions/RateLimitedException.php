@@ -10,7 +10,8 @@ class RateLimitedException extends TMetricException
         ?string $operation = null,
         ?int $status = null,
         int $attempts = 1,
+        array $safeDetails = [],
     ) {
-        parent::__construct($message, $operation, $status, $attempts);
+        parent::__construct($message, $operation, $status, $attempts, safeDetails: $safeDetails);
     }
 }

@@ -95,15 +95,46 @@ final readonly class V3Client
         return $response->data === [] ? null : TimeEntry::fromArray($response->data);
     }
 
-    public function updateTimeEntryProject(string|int $timeEntryId, string|int $projectId): ?TimeEntry
+    public function updateTimeEntryProject(TimeEntry $entry, int $projectId): ?TimeEntry
     {
+        if ($projectId <= 0 || ! ctype_digit($entry->id) || (int) $entry->id <= 0) {
+            throw new ConfigurationException('TMetric time-entry and project IDs must be positive integers.');
+        }
+
+        $raw = $entry->raw();
+        $task = $raw['task'] ?? null;
+        $tags = $raw['tags'] ?? [];
+        if (! is_array($task) || ! isset($task['id']) || ! ctype_digit((string) $task['id'])) {
+            throw new SchemaDriftException('TMetric time entry must contain a numeric task before its project can change.');
+        }
+        if (! is_array($tags) || ! array_is_list($tags) || $entry->startTime === null || $entry->endTime === null) {
+            throw new SchemaDriftException('TMetric time entry must contain complete time and tag fields before its project can change.');
+        }
+        $task['id'] = (int) $task['id'];
+        foreach ($tags as $index => $tag) {
+            if (! is_array($tag) || ! isset($tag['id']) || ! ctype_digit((string) $tag['id'])) {
+                throw new SchemaDriftException('TMetric time-entry tags must contain numeric IDs.');
+            }
+            $tags[$index]['id'] = (int) $tag['id'];
+        }
+        $body = [
+            'project' => ['id' => $projectId],
+            'task' => $task,
+            'tags' => $tags,
+            'startTime' => $entry->startTime,
+            'endTime' => $entry->endTime,
+        ];
+        if ($entry->note !== null) {
+            $body['note'] = $entry->note;
+        }
+
         $response = $this->transport->send(
             $this->connection,
             new Request(
                 operation: 'time_entries.update_project',
                 method: 'PUT',
-                path: "/accounts/{$this->accountId()}/timeentries/".rawurlencode((string) $timeEntryId),
-                body: ['project' => ['id' => (string) $projectId]],
+                path: "/accounts/{$this->accountId()}/timeentries/".rawurlencode($entry->id),
+                body: $body,
                 retryTransient: false,
             ),
         );

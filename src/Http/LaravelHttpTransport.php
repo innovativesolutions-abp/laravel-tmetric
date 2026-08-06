@@ -100,7 +100,13 @@ final class LaravelHttpTransport implements Transport
             }
 
             if ($status < 200 || $status >= 300) {
-                throw $this->statusException($request, $status, $attempt, $retryAfter);
+                throw $this->statusException(
+                    $request,
+                    $status,
+                    $attempt,
+                    $retryAfter,
+                    $this->safeErrorDetails($response->body()),
+                );
             }
 
             if (trim($response->body()) === '' && $status === 204) {
@@ -219,16 +225,66 @@ final class LaravelHttpTransport implements Transport
         int $status,
         int $attempts,
         ?int $retryAfter,
+        array $safeDetails,
     ): TMetricException {
         $message = "TMetric returned HTTP {$status} for operation [{$request->operation}].";
 
         return match ($status) {
-            401 => new AuthenticationException($message, $request->operation, $status, $attempts),
-            403 => new ForbiddenException($message, $request->operation, $status, $attempts),
-            404 => new NotFoundException($message, $request->operation, $status, $attempts),
-            429 => new RateLimitedException($message, $retryAfter, $request->operation, $status, $attempts),
-            408, 500, 502, 503, 504 => new TransientException($message, $request->operation, $status, $attempts),
-            default => new TMetricException($message, $request->operation, $status, $attempts),
+            401 => new AuthenticationException($message, $request->operation, $status, $attempts, safeDetails: $safeDetails),
+            403 => new ForbiddenException($message, $request->operation, $status, $attempts, safeDetails: $safeDetails),
+            404 => new NotFoundException($message, $request->operation, $status, $attempts, safeDetails: $safeDetails),
+            429 => new RateLimitedException($message, $retryAfter, $request->operation, $status, $attempts, $safeDetails),
+            408, 500, 502, 503, 504 => new TransientException($message, $request->operation, $status, $attempts, safeDetails: $safeDetails),
+            default => new TMetricException($message, $request->operation, $status, $attempts, safeDetails: $safeDetails),
         };
+    }
+
+    /** @return array<string, mixed> */
+    private function safeErrorDetails(string $body): array
+    {
+        $details = [
+            'body_length' => strlen($body),
+            'body_sha256' => hash('sha256', $body),
+        ];
+
+        try {
+            $decoded = json_decode($body, true, 16, JSON_THROW_ON_ERROR);
+        } catch (JsonException) {
+            return $details;
+        }
+
+        if (! is_array($decoded)) {
+            return $details;
+        }
+
+        $details['response'] = $this->sanitizeErrorValue($decoded);
+
+        return $details;
+    }
+
+    private function sanitizeErrorValue(mixed $value, int $depth = 0): mixed
+    {
+        if ($depth >= 8) {
+            return '[depth-limited]';
+        }
+
+        if (is_array($value)) {
+            $sanitized = [];
+            foreach (array_slice($value, 0, 100, true) as $key => $item) {
+                if (is_string($key) && preg_match('/token|secret|password|authorization|cookie|proxy/i', $key)) {
+                    $sanitized[$key] = '[redacted]';
+                } else {
+                    $sanitized[$key] = $this->sanitizeErrorValue($item, $depth + 1);
+                }
+            }
+
+            return $sanitized;
+        }
+
+        if (is_string($value)) {
+            return substr($value, 0, 2000);
+        }
+
+        return is_scalar($value) || $value === null ? $value : '[unsupported]';
     }
 }

@@ -11,6 +11,7 @@ use InnovativeSolutions\TMetric\Http\ConnectionConfig;
 use InnovativeSolutions\TMetric\Http\Request;
 use InnovativeSolutions\TMetric\Legacy\Data\DetailedReportRow;
 use InnovativeSolutions\TMetric\Legacy\Data\LegacyTimeEntry;
+use InnovativeSolutions\TMetric\Legacy\Data\Project;
 use InnovativeSolutions\TMetric\Legacy\Data\TimelineEntry;
 
 final readonly class LegacyV2Client
@@ -103,6 +104,61 @@ final readonly class LegacyV2Client
         return DataCollection::fromRows($response->data, LegacyTimeEntry::fromArray(...));
     }
 
+    public function project(string|int $projectId): Project
+    {
+        $id = $this->numericId($projectId, 'projectId');
+        $response = $this->transport->send(
+            $this->connection,
+            new Request(
+                'legacy.projects.get',
+                'GET',
+                "/api/accounts/{$this->accountId()}/projects/{$id}",
+                legacy: true,
+            ),
+        );
+
+        return Project::fromArray($response->data);
+    }
+
+    public function addProjectMember(Project $project, string|int $userProfileId, int $role = 0): Project
+    {
+        if (! in_array($role, [0, 1], true)) {
+            throw new ConfigurationException('TMetric project member role must be 0 or 1.');
+        }
+
+        $projectId = $this->numericId($project->id, 'projectId');
+        $profileId = $this->numericId($userProfileId, 'userProfileId');
+
+        foreach ($project->members as $member) {
+            if ($this->numericId($member->userProfileId, 'userProfileId') === $profileId) {
+                return $project;
+            }
+        }
+
+        $payload = $project->raw();
+        $members = is_array($payload['members'] ?? null) ? array_values($payload['members']) : [];
+        $members[] = [
+            'userProfileId' => $profileId,
+            'projectId' => $projectId,
+            'role' => $role,
+        ];
+        $payload['members'] = $members;
+
+        $response = $this->transport->send(
+            $this->connection,
+            new Request(
+                operation: 'legacy.projects.add_member',
+                method: 'PUT',
+                path: "/api/accounts/{$this->accountId()}/projects/{$projectId}",
+                legacy: true,
+                body: $payload,
+                retryTransient: false,
+            ),
+        );
+
+        return Project::fromArray($response->data === [] ? $payload : $response->data);
+    }
+
     private function rawAccountId(): string
     {
         if ($this->connection->accountId === null || $this->connection->accountId === '') {
@@ -117,5 +173,16 @@ final readonly class LegacyV2Client
     private function accountId(): string
     {
         return rawurlencode($this->rawAccountId());
+    }
+
+    private function numericId(string|int $value, string $field): int
+    {
+        $normalized = (string) $value;
+
+        if (! ctype_digit($normalized) || (int) $normalized <= 0 || (string) (int) $normalized !== ltrim($normalized, '0')) {
+            throw new ConfigurationException("TMetric {$field} must be a positive integer ID.");
+        }
+
+        return (int) $normalized;
     }
 }

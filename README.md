@@ -66,17 +66,19 @@ $statuses = TMetric::connection()->v3()->timeTrackingStatuses();
 $reportUsers = TMetric::connection()->v3()->reportUsers();
 ```
 
-The documented v3 time-entry project update is also available:
+The documented v3 time-entry project update is also available. Pass the fresh,
+complete time-entry DTO so the package can preserve the task, tags, times, and
+optional note required by workspaces that enforce task links:
 
 ```php
 $updated = TMetric::connection()->v3()->updateTimeEntryProject(
-    timeEntryId: '7001',
-    projectId: '9002',
+    entry: $entry,
+    projectId: 9002,
 );
 ```
 
-This sends `PUT /accounts/{accountId}/timeentries/{timeEntryId}` with
-`{"project":{"id":"9002"}}`. TMetric may return an updated time entry or an
+This sends `PUT /accounts/{accountId}/timeentries/{timeEntryId}` with numeric
+project/task/tag IDs and the complete preserved update body. TMetric may return an updated time entry or an
 empty `204`, represented by `null`. Mutations are never retried automatically:
 a connection loss, timeout, `408`, `429`, or `5xx` can have an unknown outcome.
 The transport refuses automatic retries for mutating HTTP methods even if a
@@ -84,6 +86,18 @@ custom request tries to enable its read-retry flag. Consumers must persist
 their own idempotent outbox, reconcile against a later
 authoritative synchronization, and decide whether a retry is safe. Read
 requests retain bounded transient retries.
+
+When legacy v2 is explicitly enabled, a consumer may fetch the documented full
+project model and idempotently add one numeric member while preserving the
+complete project body:
+
+```php
+$project = TMetric::connection()->legacy()->project(9002);
+$updatedProject = TMetric::connection()->legacy()->addProjectMember($project, 101);
+```
+
+The legacy project mutation is also a single non-retrying request. Consumers
+must serialize concurrent project edits and verify membership with a fresh GET.
 
 For database-backed connection settings, a consuming ERP may build a runtime connection after decrypting the token inside the request/job:
 

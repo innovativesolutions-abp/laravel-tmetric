@@ -131,6 +131,15 @@ final class V3ClientTest extends TestCase
 
     public function test_it_updates_a_time_entry_project_without_enabling_transport_retries(): void
     {
+        $source = TimeEntry::fromArray([
+            'id' => 7001,
+            'startTime' => '2026-03-28T22:30:00+01:00',
+            'endTime' => '2026-03-28T23:00:00+01:00',
+            'note' => 'Preserve this note',
+            'project' => ['id' => 9001],
+            'task' => ['id' => 8001, 'name' => 'EX-1'],
+            'tags' => [['id' => '3001', 'name' => 'Support']],
+        ]);
         TMetric::fake([[
             'id' => 7001,
             'startTime' => '2026-03-28T22:30:00+01:00',
@@ -139,16 +148,38 @@ final class V3ClientTest extends TestCase
             'task' => ['id' => 8001, 'name' => 'EX-1'],
         ]]);
 
-        $entry = TMetric::connection()->v3()->updateTimeEntryProject('7001', '9002');
+        $entry = TMetric::connection()->v3()->updateTimeEntryProject($source, 9002);
 
         self::assertSame('9002', $entry?->projectId);
         TMetric::assertRequested(
             fn (Request $request): bool => $request->operation === 'time_entries.update_project'
                 && $request->method === 'PUT'
                 && $request->path === '/accounts/42001/timeentries/7001'
-                && $request->body === ['project' => ['id' => '9002']]
+                && $request->body === [
+                    'project' => ['id' => 9002],
+                    'task' => ['id' => 8001, 'name' => 'EX-1'],
+                    'tags' => [['id' => 3001, 'name' => 'Support']],
+                    'startTime' => '2026-03-28T22:30:00+01:00',
+                    'endTime' => '2026-03-28T23:00:00+01:00',
+                    'note' => 'Preserve this note',
+                ]
                 && $request->retryTransient === false,
         );
+    }
+
+    public function test_project_update_fails_closed_when_the_entry_has_no_task(): void
+    {
+        $source = TimeEntry::fromArray([
+            'id' => 7001,
+            'startTime' => '2026-03-28T22:30:00+01:00',
+            'endTime' => '2026-03-28T23:00:00+01:00',
+            'project' => ['id' => 9001],
+            'tags' => [],
+        ]);
+
+        $this->expectException(SchemaDriftException::class);
+
+        TMetric::connection()->v3()->updateTimeEntryProject($source, 9002);
     }
 
     public function test_fake_fails_closed_for_an_unplanned_request(): void

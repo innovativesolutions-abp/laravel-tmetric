@@ -7,6 +7,7 @@ use InnovativeSolutions\TMetric\Exceptions\LegacyApiDisabledException;
 use InnovativeSolutions\TMetric\Facades\TMetric;
 use InnovativeSolutions\TMetric\Http\ConnectionConfig;
 use InnovativeSolutions\TMetric\Http\Request;
+use InnovativeSolutions\TMetric\Legacy\Data\Project;
 use InnovativeSolutions\TMetric\Legacy\LegacyV2Client;
 use InnovativeSolutions\TMetric\Testing\FakeTransport;
 use InnovativeSolutions\TMetric\Tests\TestCase;
@@ -98,5 +99,73 @@ final class LegacyV2ClientTest extends TestCase
         $this->expectException(LegacyApiDisabledException::class);
 
         new LegacyV2Client(ConnectionConfig::fromArray('default', $config), new FakeTransport);
+    }
+
+    public function test_it_reads_a_full_project_and_adds_one_member_without_dropping_fields(): void
+    {
+        $project = [
+            'projectId' => 9001,
+            'accountId' => 42001,
+            'projectName' => 'Data Plans',
+            'projectStatus' => 1,
+            'isBillable' => true,
+            'notes' => 'Preserve every field',
+            'members' => [[
+                'userProfileId' => 101,
+                'projectId' => 9001,
+                'role' => 1,
+            ]],
+            'groups' => [['projectId' => 9001, 'userGroupId' => 55]],
+        ];
+        TMetric::fake([$project, [
+            ...$project,
+            'members' => [
+                ...$project['members'],
+                ['userProfileId' => 102, 'projectId' => 9001, 'role' => 0],
+            ],
+        ]]);
+
+        $current = TMetric::connection()->legacy()->project(9001);
+        $updated = TMetric::connection()->legacy()->addProjectMember($current, 102);
+
+        self::assertCount(2, $updated->members);
+        TMetric::assertRequested(fn (Request $request): bool => $request->operation === 'legacy.projects.get'
+            && $request->method === 'GET'
+            && $request->path === '/api/accounts/42001/projects/9001');
+        TMetric::assertRequested(fn (Request $request): bool => $request->operation === 'legacy.projects.add_member'
+            && $request->method === 'PUT'
+            && $request->legacy
+            && $request->retryTransient === false
+            && $request->body['notes'] === 'Preserve every field'
+            && $request->body['groups'] === [['projectId' => 9001, 'userGroupId' => 55]]
+            && $request->body['members'][1] === [
+                'userProfileId' => 102,
+                'projectId' => 9001,
+                'role' => 0,
+            ]);
+    }
+
+    public function test_adding_an_existing_project_member_is_idempotent_and_sends_no_request(): void
+    {
+        $project = Project::fromArray([
+            'projectId' => 9001,
+            'accountId' => 42001,
+            'projectName' => 'Data Plans',
+            'members' => [[
+                'userProfileId' => 101,
+                'projectId' => 9001,
+                'role' => 0,
+            ]],
+        ]);
+        $transport = new FakeTransport;
+        $client = new LegacyV2Client(
+            ConnectionConfig::fromArray('default', config('tmetric.connections.default')),
+            $transport,
+        );
+
+        $unchanged = $client->addProjectMember($project, 101);
+
+        self::assertSame($project, $unchanged);
+        self::assertCount(0, $transport->recorded());
     }
 }

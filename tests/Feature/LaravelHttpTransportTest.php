@@ -220,6 +220,28 @@ final class LaravelHttpTransportTest extends TestCase
         Http::assertSentCount(1);
     }
 
+    public function test_it_exposes_bounded_sanitized_negative_response_details(): void
+    {
+        Http::fake(['tmetric.test/*' => Http::response([
+            'statusCode' => 403,
+            'message' => 'A task link is required.',
+            'token' => 'must-not-leak',
+            'errors' => [['field' => 'task', 'message' => 'Required']],
+        ], 403)]);
+
+        try {
+            $this->transport()->send($this->connection(), new Request('time_entries.update_project', 'PUT', '/test'));
+            self::fail('Expected forbidden exception.');
+        } catch (ForbiddenException $exception) {
+            self::assertSame(403, $exception->status);
+            self::assertSame('A task link is required.', $exception->safeDetails['response']['message']);
+            self::assertSame('[redacted]', $exception->safeDetails['response']['token']);
+            self::assertSame('Required', $exception->safeDetails['response']['errors'][0]['message']);
+            self::assertArrayHasKey('body_sha256', $exception->safeDetails);
+            self::assertStringNotContainsString('must-not-leak', serialize($exception->safeDetails));
+        }
+    }
+
     public function test_it_retries_429_with_retry_after_and_then_reports_exhaustion(): void
     {
         Http::fakeSequence()
