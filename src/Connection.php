@@ -19,6 +19,11 @@ final readonly class Connection
         return new V3Client($this->config, $this->transport);
     }
 
+    public function provisioning(): ProvisioningClient
+    {
+        return new ProvisioningClient($this->config, $this->transport);
+    }
+
     public function legacy(): LegacyV2Client
     {
         if (! $this->config->legacyEnabled) {
