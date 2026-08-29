@@ -122,32 +122,66 @@ final readonly class LegacyV2Client
 
     public function addProjectMember(Project $project, string|int $userProfileId, int $role = 0): Project
     {
+        return $this->updateProjectMembers(
+            $project,
+            [$userProfileId],
+            $role,
+            'legacy.projects.add_member',
+        );
+    }
+
+    /** @param list<string|int> $userProfileIds */
+    public function addProjectMembers(Project $project, array $userProfileIds, int $role = 0): Project
+    {
+        return $this->updateProjectMembers(
+            $project,
+            $userProfileIds,
+            $role,
+            'legacy.projects.add_members',
+        );
+    }
+
+    /** @param list<string|int> $userProfileIds */
+    private function updateProjectMembers(
+        Project $project,
+        array $userProfileIds,
+        int $role,
+        string $operation,
+    ): Project {
         if (! in_array($role, [0, 1], true)) {
             throw new ConfigurationException('TMetric project member role must be 0 or 1.');
         }
 
         $projectId = $this->numericId($project->id, 'projectId');
-        $profileId = $this->numericId($userProfileId, 'userProfileId');
+        $requestedProfileIds = array_values(array_unique(array_map(
+            fn (string|int $profileId): int => $this->numericId($profileId, 'userProfileId'),
+            $userProfileIds,
+        )));
+        $existingProfileIds = array_map(
+            fn ($member): int => $this->numericId($member->userProfileId, 'userProfileId'),
+            $project->members->all(),
+        );
+        $missingProfileIds = array_values(array_diff($requestedProfileIds, $existingProfileIds));
 
-        foreach ($project->members as $member) {
-            if ($this->numericId($member->userProfileId, 'userProfileId') === $profileId) {
-                return $project;
-            }
+        if ($missingProfileIds === []) {
+            return $project;
         }
 
         $payload = $this->normalizeNumericIds($project->raw());
         $members = is_array($payload['members'] ?? null) ? array_values($payload['members']) : [];
-        $members[] = [
-            'userProfileId' => $profileId,
-            'projectId' => $projectId,
-            'role' => $role,
-        ];
+        foreach ($missingProfileIds as $profileId) {
+            $members[] = [
+                'userProfileId' => $profileId,
+                'projectId' => $projectId,
+                'role' => $role,
+            ];
+        }
         $payload['members'] = $members;
 
         $response = $this->transport->send(
             $this->connection,
             new Request(
-                operation: 'legacy.projects.add_member',
+                operation: $operation,
                 method: 'PUT',
                 path: "/api/accounts/{$this->accountId()}/projects/{$projectId}",
                 legacy: true,

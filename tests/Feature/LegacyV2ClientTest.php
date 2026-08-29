@@ -175,4 +175,66 @@ final class LegacyV2ClientTest extends TestCase
         self::assertSame($project, $unchanged);
         self::assertCount(0, $transport->recorded());
     }
+
+    public function test_it_adds_multiple_missing_project_members_in_one_state_preserving_request(): void
+    {
+        $project = Project::fromArray([
+            'projectId' => 9001,
+            'accountId' => 42001,
+            'projectName' => 'Data Plans',
+            'notes' => 'Preserve every field',
+            'members' => [[
+                'userProfileId' => 101,
+                'projectId' => 9001,
+                'role' => 1,
+            ]],
+            'groups' => [['projectId' => 9001, 'userGroupId' => 55]],
+        ]);
+        $transport = new FakeTransport([[
+            ...$project->raw(),
+            'members' => [
+                ...$project->raw()['members'],
+                ['userProfileId' => 102, 'projectId' => 9001, 'role' => 0],
+                ['userProfileId' => 103, 'projectId' => 9001, 'role' => 0],
+            ],
+        ]]);
+        $client = new LegacyV2Client(
+            ConnectionConfig::fromArray('default', config('tmetric.connections.default')),
+            $transport,
+        );
+
+        $updated = $client->addProjectMembers($project, [101, 102, '103', 102]);
+
+        self::assertCount(3, $updated->members);
+        self::assertCount(1, $transport->recorded());
+        $transport->assertRequested(fn (Request $request): bool => $request->operation === 'legacy.projects.add_members'
+            && $request->method === 'PUT'
+            && $request->retryTransient === false
+            && $request->body['notes'] === 'Preserve every field'
+            && $request->body['groups'] === [['projectId' => 9001, 'userGroupId' => 55]]
+            && array_column($request->body['members'], 'userProfileId') === [101, 102, 103]);
+    }
+
+    public function test_adding_only_existing_project_members_is_idempotent_and_sends_no_request(): void
+    {
+        $project = Project::fromArray([
+            'projectId' => 9001,
+            'accountId' => 42001,
+            'projectName' => 'Data Plans',
+            'members' => [
+                ['userProfileId' => 101, 'projectId' => 9001, 'role' => 0],
+                ['userProfileId' => 102, 'projectId' => 9001, 'role' => 1],
+            ],
+        ]);
+        $transport = new FakeTransport;
+        $client = new LegacyV2Client(
+            ConnectionConfig::fromArray('default', config('tmetric.connections.default')),
+            $transport,
+        );
+
+        $unchanged = $client->addProjectMembers($project, ['101', 102, 101]);
+
+        self::assertSame($project, $unchanged);
+        self::assertCount(0, $transport->recorded());
+    }
 }
