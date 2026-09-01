@@ -17,6 +17,7 @@ final readonly class Project extends DataObject
         public string $id,
         public string $accountId,
         public ?string $name,
+        public ?string $clientId,
         public DataCollection $members,
     ) {
         parent::__construct($raw);
@@ -36,6 +37,7 @@ final readonly class Project extends DataObject
             self::requiredNonEmptyId($data, 'projectId'),
             self::requiredNonEmptyId($data, 'accountId'),
             self::nullableString($data, 'projectName'),
+            self::nullableId($data, 'clientId'),
             DataCollection::fromRows($members ?? [], ProjectMember::fromArray(...)),
         );
     }

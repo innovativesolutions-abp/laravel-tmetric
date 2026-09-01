@@ -237,4 +237,52 @@ final class LegacyV2ClientTest extends TestCase
         self::assertSame($project, $unchanged);
         self::assertCount(0, $transport->recorded());
     }
+
+    public function test_it_assigns_an_existing_client_through_the_documented_bulk_project_endpoint(): void
+    {
+        $project = Project::fromArray([
+            'projectId' => 9001,
+            'accountId' => 42001,
+            'projectName' => 'Data Plans',
+            'clientId' => null,
+            'members' => [],
+        ]);
+        $transport = new FakeTransport([[]]);
+        $client = new LegacyV2Client(
+            ConnectionConfig::fromArray('default', config('tmetric.connections.default')),
+            $transport,
+        );
+
+        $client->assignProjectClient($project, '5001');
+
+        $transport->assertRequestCount(1);
+        $transport->assertRequested(fn (Request $request): bool => $request->operation === 'legacy.projects.assign_client'
+            && $request->method === 'POST'
+            && $request->path === '/api/accounts/42001/projects/bulk'
+            && $request->legacy
+            && $request->retryTransient === false
+            && $request->body === ['projects' => [9001], 'clientId' => 5001]);
+        self::addToAssertionCount(1);
+    }
+
+    public function test_assigning_the_existing_project_client_is_idempotent_and_sends_no_request(): void
+    {
+        $project = Project::fromArray([
+            'projectId' => 9001,
+            'accountId' => 42001,
+            'projectName' => 'Data Plans',
+            'clientId' => 5001,
+            'members' => [],
+        ]);
+        $transport = new FakeTransport;
+        $client = new LegacyV2Client(
+            ConnectionConfig::fromArray('default', config('tmetric.connections.default')),
+            $transport,
+        );
+
+        $client->assignProjectClient($project, 5001);
+
+        $transport->assertRequestCount(0);
+        self::addToAssertionCount(1);
+    }
 }

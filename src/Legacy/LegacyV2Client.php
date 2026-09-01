@@ -141,6 +141,38 @@ final readonly class LegacyV2Client
         );
     }
 
+    /**
+     * Assign an existing client to a project through the documented legacy
+     * bulk-project endpoint. The endpoint has no response body, so callers
+     * must re-read and verify the project before treating the assignment as
+     * confirmed.
+     */
+    public function assignProjectClient(Project $project, string|int $clientId): void
+    {
+        $projectId = $this->numericId($project->id, 'projectId');
+        $requestedClientId = $this->numericId($clientId, 'clientId');
+
+        if ($project->clientId !== null
+            && $this->numericId($project->clientId, 'project.clientId') === $requestedClientId) {
+            return;
+        }
+
+        $this->transport->send(
+            $this->connection,
+            new Request(
+                operation: 'legacy.projects.assign_client',
+                method: 'POST',
+                path: "/api/accounts/{$this->accountId()}/projects/bulk",
+                legacy: true,
+                body: [
+                    'projects' => [$projectId],
+                    'clientId' => $requestedClientId,
+                ],
+                retryTransient: false,
+            ),
+        );
+    }
+
     /** @param list<string|int> $userProfileIds */
     private function updateProjectMembers(
         Project $project,
