@@ -129,6 +129,7 @@ final class LegacyV2ClientTest extends TestCase
         $updated = TMetric::connection()->legacy()->addProjectMember($current, 102);
 
         self::assertCount(2, $updated->members);
+        self::assertSame('55', $current->groups->all()[0]->userGroupId);
         TMetric::assertRequested(fn (Request $request): bool => $request->operation === 'legacy.projects.get'
             && $request->method === 'GET'
             && $request->path === '/api/accounts/42001/projects/9001');
@@ -150,6 +151,37 @@ final class LegacyV2ClientTest extends TestCase
                 'projectId' => 9001,
                 'role' => 0,
             ]);
+    }
+
+    public function test_it_reads_members_and_supervisors_of_a_project_user_group(): void
+    {
+        TMetric::fake([[
+            'userGroupId' => 55,
+            'accountId' => 42001,
+            'name' => 'ConnectUs',
+            'members' => [[
+                'userProfileId' => 102,
+                'userGroupId' => 55,
+                'accountId' => 42001,
+            ]],
+            'supervisors' => [[
+                'userProfileId' => 103,
+                'userGroupId' => 55,
+                'accountId' => 42001,
+            ]],
+        ]]);
+
+        $group = TMetric::connection()->legacy()->userGroup(55);
+
+        self::assertSame('55', $group->id);
+        self::assertSame('42001', $group->accountId);
+        self::assertSame('ConnectUs', $group->name);
+        self::assertSame('102', $group->members->all()[0]->userProfileId);
+        self::assertSame('103', $group->supervisors->all()[0]->userProfileId);
+        TMetric::assertRequested(fn (Request $request): bool => $request->operation === 'legacy.user_groups.get'
+            && $request->method === 'GET'
+            && $request->legacy
+            && $request->path === '/api/accounts/42001/usergroups/55');
     }
 
     public function test_adding_an_existing_project_member_is_idempotent_and_sends_no_request(): void

@@ -90,6 +90,7 @@ Implemented documented reads:
 | Numeric Timeline | `GET /api/timeline/{accountId}` |
 | User time entries | `GET /api/accounts/{accountId}/timeentries/{userProfileId}` |
 | Full project | `GET /api/accounts/{accountId}/projects/{projectId}` |
+| User group with members and supervisors | `GET /api/accounts/{accountId}/usergroups/{userGroupId}` |
 
 Implemented documented write:
 
@@ -101,7 +102,11 @@ The legacy time-entry request documents `StartTime`, `EndTime`, `useUtcTime`, `i
 
 The Timeline schema contains nested details with `activitySeconds` and `totalSeconds`. It also describes process/window fields, which this package intentionally removes from its DTOs for privacy.
 
-The legacy Project schema contains full project settings and `members[]`.
+The legacy Project schema contains full project settings, direct `members[]`,
+and assigned `groups[]`. A project group references a UserGroup, whose
+`members[]` and `supervisors[]` are distinct collections. Consumers that need
+effective project access must resolve assigned groups and must not infer that a
+group supervisor is also a group member.
 Because the endpoint is a full-resource PUT without a documented ETag, the
 package does not retry it and does not claim concurrency safety. A consuming
 application must lock per project, GET immediately before PUT, and verify the

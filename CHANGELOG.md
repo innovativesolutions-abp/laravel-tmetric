@@ -4,6 +4,8 @@ All notable changes will be documented in this file.
 
 ## Unreleased
 
+- Added typed legacy project-group and user-group reads so consumers can
+  distinguish direct project members, team members, and team supervisors.
 - Added full-body numeric-ID time-entry project updates, typed legacy project
   and member reads, idempotent full-project member addition, and bounded
   sanitized negative-response details.
