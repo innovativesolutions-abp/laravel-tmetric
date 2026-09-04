@@ -13,6 +13,7 @@ use InnovativeSolutions\TMetric\Legacy\Data\DetailedReportRow;
 use InnovativeSolutions\TMetric\Legacy\Data\LegacyTimeEntry;
 use InnovativeSolutions\TMetric\Legacy\Data\Project;
 use InnovativeSolutions\TMetric\Legacy\Data\TimelineEntry;
+use InnovativeSolutions\TMetric\Legacy\Data\UserGroup;
 
 final readonly class LegacyV2Client
 {
@@ -118,6 +119,22 @@ final readonly class LegacyV2Client
         );
 
         return Project::fromArray($response->data);
+    }
+
+    public function userGroup(string|int $userGroupId): UserGroup
+    {
+        $id = $this->numericId($userGroupId, 'userGroupId');
+        $response = $this->transport->send(
+            $this->connection,
+            new Request(
+                'legacy.user_groups.get',
+                'GET',
+                "/api/accounts/{$this->accountId()}/usergroups/{$id}",
+                legacy: true,
+            ),
+        );
+
+        return UserGroup::fromArray($response->data);
     }
 
     public function addProjectMember(Project $project, string|int $userProfileId, int $role = 0): Project
