@@ -12,6 +12,22 @@ It must not contain:
 - Team Hours calculations;
 - queue/sync orchestration.
 
-The real-workspace contract is owned by ERP TSA.01. Do not implement undocumented member selectors until TSA.01 proves them.
+The statically reviewed provider contract is owned by ERP TSA.01/TSA.02.
+Do not invent undocumented member selectors, fields, envelopes, timezone semantics or precision.
+
+The official v3.2.1 Schedule contract contains two explicit contradictions that package code may support conservatively:
+- root one schedule object vs textual list/all-workspace-members semantics;
+- `user: UserBasic` schema vs one-element `user` array example.
+
+Support only those explicit forms and fail closed on any third shape. Real provider shape is a TSA.20 runtime gate.
 
 Standard package tests are fake/synthetic and must not make real network calls.
+
+## Execution policy
+
+Until ERP TSA.20:
+- code/documentation/test-code only;
+- do not run package tests/builds/linters;
+- do not make provider requests;
+- do not run GitHub Actions/CI;
+- do not deploy or touch Stage/main/Production.
