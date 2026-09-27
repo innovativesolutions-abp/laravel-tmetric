@@ -216,7 +216,7 @@ that the application rejects an absent proxy before calling this package.
 
 ## Error model
 
-The client maps authentication, authorization, not-found, rate-limit, transient transport, malformed JSON, and schema-drift failures to typed exceptions. For safe read methods, timeouts, connection failures, HTTP 408/429, and server errors are retried with bounded attempts honoring `Retry-After`. Mutating methods fail closed after the first ambiguous result and are not automatically retried.
+The client maps authentication, authorization, not-found, rate-limit, transient transport, malformed JSON, and schema-drift failures to typed exceptions. For safe read methods, timeouts, connection failures, HTTP 408/429, and server errors use bounded retries. An explicit `Retry-After` is followed only when its full wait fits the configured retry-delay budget; a longer provider window is surfaced immediately as `RateLimitedException` so callers can defer work instead of retrying early. Mutating methods fail closed after the first ambiguous result and are not automatically retried.
 
 HTTP 206 is rejected with `PartialContentException` rather than returning a silently truncated collection. The official tasks endpoint may return only its first 500 tasks and does not document a pagination mechanism.
 
