@@ -6,7 +6,9 @@ use DateTimeInterface;
 use InnovativeSolutions\TMetric\Contracts\Transport;
 use InnovativeSolutions\TMetric\Data\Client;
 use InnovativeSolutions\TMetric\Data\DataCollection;
+use InnovativeSolutions\TMetric\Data\IndividualSchedule;
 use InnovativeSolutions\TMetric\Data\Task;
+use InnovativeSolutions\TMetric\Data\TimeBalanceSummary;
 use InnovativeSolutions\TMetric\Data\TimeEntry;
 use InnovativeSolutions\TMetric\Data\TimeEntryProject;
 use InnovativeSolutions\TMetric\Data\TimeTrackingStatus;
@@ -63,6 +65,60 @@ final readonly class V3Client
             "/accounts/{$this->accountId()}/timeentries/projects",
             TimeEntryProject::fromArray(...),
         );
+    }
+
+    /** @return DataCollection<IndividualSchedule> */
+    public function schedules(DateTimeInterface $startDate, DateTimeInterface $endDate): DataCollection
+    {
+        $start = $startDate->format('Y-m-d');
+        $end = $endDate->format('Y-m-d');
+
+        if ($start > $end) {
+            throw new ConfigurationException('TMetric schedule start date must not be after the end date.');
+        }
+
+        $response = $this->transport->send(
+            $this->connection,
+            new Request(
+                'schedule.list',
+                'GET',
+                "/accounts/{$this->accountId()}/schedule",
+                [
+                    'StartDate' => $start,
+                    'EndDate' => $end,
+                ],
+            ),
+        );
+
+        return DataCollection::fromRows(
+            $this->scheduleRows($response->data),
+            IndividualSchedule::fromArray(...),
+        );
+    }
+
+    public function timeBalance(string|int|null $userId = null): TimeBalanceSummary
+    {
+        $query = [];
+
+        if ($userId !== null) {
+            $query['userId'] = $this->positiveIntegerId($userId, 'userId');
+        }
+
+        $response = $this->transport->send(
+            $this->connection,
+            new Request(
+                'balance.get',
+                'GET',
+                "/accounts/{$this->accountId()}/balance",
+                $query,
+            ),
+        );
+
+        if (array_is_list($response->data) && $response->data !== []) {
+            throw new SchemaDriftException('TMetric time balance response must be an object.');
+        }
+
+        return TimeBalanceSummary::fromArray($response->data);
     }
 
     /** @return DataCollection<TimeEntry> */
@@ -191,6 +247,49 @@ final readonly class V3Client
         );
 
         return DataCollection::fromRows($response->data, $factory);
+    }
+
+    /**
+     * Normalize only the two contradictory root forms explicitly represented by
+     * the TMetric v3.2.1 Schedule documentation: one object or a list of objects.
+     *
+     * @param array<mixed> $data
+     * @return list<array<string, mixed>>
+     */
+    private function scheduleRows(array $data): array
+    {
+        if ($data === []) {
+            return [];
+        }
+
+        if (array_is_list($data)) {
+            foreach ($data as $row) {
+                if (! is_array($row) || (array_is_list($row) && $row !== [])) {
+                    throw new SchemaDriftException('TMetric schedule response list contains a non-object item.');
+                }
+            }
+
+            /** @var list<array<string, mixed>> $data */
+            return $data;
+        }
+
+        if (! array_key_exists('user', $data) && ! array_key_exists('days', $data)) {
+            throw new SchemaDriftException('TMetric schedule response uses an undocumented envelope.');
+        }
+
+        /** @var array<string, mixed> $data */
+        return [$data];
+    }
+
+    private function positiveIntegerId(string|int $value, string $field): string
+    {
+        $string = (string) $value;
+
+        if (! preg_match('/^[1-9][0-9]*$/D', $string)) {
+            throw new ConfigurationException("TMetric {$field} must be a positive integer.");
+        }
+
+        return $string;
     }
 
     private function accountId(): string
