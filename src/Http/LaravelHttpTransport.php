@@ -85,6 +85,18 @@ final class LaravelHttpTransport implements Transport
             if ($request->retryTransient
                 && $this->isRetryableStatus($status)
                 && $attempt < $connection->maxAttempts) {
+                if ($status === 429
+                    && $retryAfter !== null
+                    && $retryAfter > $connection->maxRetryDelaySeconds) {
+                    throw $this->statusException(
+                        $request,
+                        $status,
+                        $attempt,
+                        $retryAfter,
+                        $this->safeErrorDetails($response->body()),
+                    );
+                }
+
                 $this->sleeper->sleepMilliseconds($this->backoffMilliseconds($attempt, $retryAfter, $connection));
 
                 continue;
