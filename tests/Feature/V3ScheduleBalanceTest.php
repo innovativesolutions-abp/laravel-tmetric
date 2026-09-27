@@ -147,7 +147,7 @@ final class V3ScheduleBalanceTest extends TestCase
 
     public function test_schedule_rejects_invalid_member_identity(): void
     {
-        foreach ([0, -1, '', 'abc', '1.5'] as $invalid) {
+        foreach (['', 'abc', '1.5'] as $invalid) {
             TMetric::fake([[
                 'user' => ['id' => $invalid],
                 'days' => [],
@@ -162,6 +162,20 @@ final class V3ScheduleBalanceTest extends TestCase
             } catch (SchemaDriftException) {
                 self::addToAssertionCount(1);
             }
+        }
+
+        foreach ([0, -1] as $documentedIntegerWithoutMinimum) {
+            TMetric::fake([[
+                'user' => ['id' => $documentedIntegerWithoutMinimum],
+                'days' => [],
+            ]]);
+
+            $schedules = TMetric::connection()->v3()->schedules(
+                new DateTimeImmutable('2026-09-28'),
+                new DateTimeImmutable('2026-09-29'),
+            );
+
+            self::assertSame((string) $documentedIntegerWithoutMinimum, $schedules->all()[0]->user?->id);
         }
     }
 
