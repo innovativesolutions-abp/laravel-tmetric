@@ -98,7 +98,7 @@ Until an authorized runtime confirmation, the package accepts only the two expli
 - top-level one schedule object or a list of schedule objects;
 - nested one user object or exactly one user in a one-element list.
 
-Unknown envelopes and other list cardinalities raise `SchemaDriftException`.
+Unknown envelopes and other list cardinalities raise `SchemaDriftException`. Schedule member IDs are required to remain integer-compatible as documented; no undocumented positivity minimum is imposed on response IDs.
 
 Documented schedule fields are limited to `user` and `days[]`, with day fields `date`, `isWorking`, and `hours`. The package:
 - preserves the original provider date-time string/offset;
@@ -106,7 +106,7 @@ Documented schedule fields are limited to `user` and `days[]`, with day fields `
 - preserves missing values as missing/null typed state plus the existing raw escape hatch;
 - does not invent schedule timezone, working-hours intervals, effective episodes, holiday/additional-workday categories, override provenance, or Beyond Schedule.
 
-Because PHP associative JSON decoding cannot distinguish an empty object `{}` from an empty array `[]`, empty object-compatible nested structures are accepted only where the provider schema makes every nested property optional. Non-empty undocumented list shapes still fail closed.
+Because PHP associative JSON decoding cannot distinguish an empty object `{}` from an empty array `[]`, empty object-compatible structures may be representation-ambiguous after transport decoding. Non-empty undocumented list/envelope shapes still fail closed. TSA.20 must confirm that real Schedule/Balance payloads do not depend on an ambiguous empty root/container distinction before provider authority activation.
 
 ### Time Balance
 
@@ -123,9 +123,11 @@ The documented summary exposes optional `month`, `today`, and `week` objects. Ea
 - `actualSeconds`;
 - `actualSecondsRounded`.
 
-The OpenAPI does not mark those summary/value properties required, so missing values remain missing and are never defaulted to zero.
+The OpenAPI does not mark those summary/value properties required, so missing values remain missing and are never defaulted to zero. Non-empty undocumented root envelopes fail closed instead of being interpreted as an empty balance.
 
 No direct Beyond Schedule endpoint or field is documented in v3.2.1.
+
+Both new reads require the documented HTTP `200` success status. An undocumented successful status such as `204` is treated as contract/schema drift rather than silently becoming an empty result.
 
 The tasks endpoint documents HTTP 206 as “Only first 500 tasks returned” without a pagination mechanism. The package raises a typed `PartialContentException` for 206 so consumers cannot mistake a truncated result for a complete snapshot.
 
