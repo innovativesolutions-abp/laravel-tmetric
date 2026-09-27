@@ -38,7 +38,7 @@ network-level direct-egress controls. Proxy-bearing configuration is redacted
 from debug output and cannot be serialized.
 
 Automatic transient retries are enabled by default only for safe read methods
-(`GET`, `HEAD`, and `OPTIONS`). Mutations are single-attempt operations because
+(`GET`, `HEAD`, and `OPTIONS`). For HTTP 429, an explicit `Retry-After` is retried only when the full provider-requested wait fits within `max_retry_delay_seconds`; if it exceeds that local retry budget, the transport surfaces `RateLimitedException` immediately instead of retrying before the provider window. Mutations are single-attempt operations because
 a connection loss, timeout, `408`, `429`, or `5xx` can occur after TMetric has
 already applied the change. The consuming application must own durable
 idempotency, unknown-outcome reconciliation, and any later retry decision.
