@@ -9,6 +9,7 @@ use InnovativeSolutions\TMetric\Exceptions\ConfigurationException;
 use InnovativeSolutions\TMetric\Exceptions\SchemaDriftException;
 use InnovativeSolutions\TMetric\Facades\TMetric;
 use InnovativeSolutions\TMetric\Http\Request;
+use InnovativeSolutions\TMetric\Http\Response;
 use InnovativeSolutions\TMetric\Tests\TestCase;
 
 final class V3ScheduleBalanceTest extends TestCase
@@ -111,6 +112,20 @@ final class V3ScheduleBalanceTest extends TestCase
         self::assertFalse($day->isWorking);
         self::assertSame(0, $day->hours);
         self::assertTrue(array_key_exists('hours', $day->raw()));
+    }
+
+    public function test_schedule_rejects_undocumented_success_status(): void
+    {
+        TMetric::fake([
+            new Response(204, []),
+        ]);
+
+        $this->expectException(SchemaDriftException::class);
+
+        TMetric::connection()->v3()->schedules(
+            new DateTimeImmutable('2026-09-28'),
+            new DateTimeImmutable('2026-09-29'),
+        );
     }
 
     public function test_schedule_rejects_undocumented_root_envelope(): void
@@ -233,6 +248,17 @@ final class V3ScheduleBalanceTest extends TestCase
 
             $fake->assertRequestCount(0);
         }
+    }
+
+    public function test_time_balance_rejects_undocumented_success_status(): void
+    {
+        TMetric::fake([
+            new Response(204, []),
+        ]);
+
+        $this->expectException(SchemaDriftException::class);
+
+        TMetric::connection()->v3()->timeBalance();
     }
 
     public function test_time_balance_rejects_undocumented_root_envelope(): void
