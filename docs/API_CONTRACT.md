@@ -1,6 +1,6 @@
 # TMetric API contract
 
-Checked: 25 July 2026.
+Checked: 25 July 2026. Schedule/Time Balance v3.2.1 contract reviewed again on 27 September 2026.
 
 Sources:
 
@@ -61,6 +61,8 @@ Implemented documented reads:
 | Latest time entry | `GET /accounts/{accountId}/timeentries/latest` |
 | Tracking statuses | `GET /accounts/{accountId}/timeentries/statuses` |
 | Report-visible workspace users | `GET /accounts/{accountId}/reports/projects/filter` |
+| Individual schedules | `GET /accounts/{accountId}/schedule` |
+| Time balance | `GET /accounts/{accountId}/balance` |
 
 Implemented documented writes:
 
@@ -75,6 +77,55 @@ outcomes, or implement ERP authorization and reconciliation rules.
 The schema does not document a v3 `GET` on `/accounts/{accountId}/members` or `/accounts/{accountId}/projects`. It documents `PATCH` for members and `POST` for projects. The package does not infer unsupported reads. Workspace-user discovery uses the documented project-report filter and therefore represents users whose report data is visible to the current token, not an administrative members snapshot.
 
 The time-entry list accepts `userId`, `startDate`, and `endDate`. The schema does not describe a cursor or `updated_since` filter.
+
+### Schedule
+
+The documented v3.2.1 Schedule request is:
+
+`GET /accounts/{accountId}/schedule?StartDate=YYYY-MM-DD&EndDate=YYYY-MM-DD`
+
+TMetric documents `StartDate` and `EndDate` as optional. This package deliberately requires both dates so a generic client cannot accidentally issue an unbounded workspace schedule read.
+
+There is no documented Schedule `userId` query. One logical `schedules()` call performs one provider request before the common transport's bounded read retries; the package never performs member discovery or per-member Schedule fan-out.
+
+The provider OpenAPI is internally contradictory:
+- endpoint/200 text describes schedules for all workspace members;
+- the response schema references one `IndividualSchedule`;
+- `IndividualSchedule.user` references one `UserBasic`;
+- its example shows a one-element `user` array.
+
+Until an authorized runtime confirmation, the package accepts only the two explicit forms represented by that specification:
+- top-level one schedule object or a list of schedule objects;
+- nested one user object or exactly one user in a one-element list.
+
+Unknown envelopes and other list cardinalities raise `SchemaDriftException`.
+
+Documented schedule fields are limited to `user` and `days[]`, with day fields `date`, `isWorking`, and `hours`. The package:
+- preserves the original provider date-time string/offset;
+- preserves `hours` as int/float without rounding;
+- preserves missing values as missing/null typed state plus the existing raw escape hatch;
+- does not invent schedule timezone, working-hours intervals, effective episodes, holiday/additional-workday categories, override provenance, or Beyond Schedule.
+
+Because PHP associative JSON decoding cannot distinguish an empty object `{}` from an empty array `[]`, empty object-compatible nested structures are accepted only where the provider schema makes every nested property optional. Non-empty undocumented list shapes still fail closed.
+
+### Time Balance
+
+The documented request is:
+
+`GET /accounts/{accountId}/balance`
+
+with optional positive integer query `userId`. Omitting `userId` requests the current authenticated user's balance; supplying it requests that user.
+
+One logical `timeBalance()` call performs one provider request before the common transport's bounded read retries. The package never discovers users or fans out Balance requests.
+
+The documented summary exposes optional `month`, `today`, and `week` objects. Each may expose:
+- `requiredSeconds`;
+- `actualSeconds`;
+- `actualSecondsRounded`.
+
+The OpenAPI does not mark those summary/value properties required, so missing values remain missing and are never defaulted to zero.
+
+No direct Beyond Schedule endpoint or field is documented in v3.2.1.
 
 The tasks endpoint documents HTTP 206 as “Only first 500 tasks returned” without a pagination mechanism. The package raises a typed `PartialContentException` for 206 so consumers cannot mistake a truncated result for a complete snapshot.
 
@@ -116,7 +167,7 @@ Negative HTTP exceptions expose only bounded decoded JSON with sensitive keys
 redacted, plus body length and SHA-256. They never expose headers, credentials,
 proxy configuration, or an unbounded raw response body.
 
-## Unresolved until an authorized real-workspace spike
+## Unresolved until the consuming ERP's authorized TSA.20 runtime gate
 
 - token plan and permissions for each endpoint;
 - whether all legacy endpoints remain supported for long-term integrations;
@@ -127,3 +178,20 @@ proxy configuration, or an unbounded raw response body.
 - response differences between active timers, manual entries, and deleted entries.
 
 Until these points are checked, legacy support is experimental and disabled by default.
+
+
+### Schedule Authority runtime gates
+
+The package implementation above is based on static v3.2.1 contract evidence and synthetic/fake test code only. No real TMetric request was made while adding it.
+
+The consuming ERP must verify before activating provider-backed schedule authority:
+- actual Schedule top-level and nested-user shape;
+- authorized visibility of other workspace members;
+- date/timezone semantics;
+- real `hours` precision;
+- missing-field behavior;
+- Schedule response size/latency/rate-limit behavior;
+- explicit-other-user Balance permission;
+- any undocumented richer Schedule/Beyond-Schedule surface.
+
+If runtime evidence contradicts the static compatibility contract, the consuming application must keep provider authority disabled and return the package/application code to review rather than guessing a third response shape.
