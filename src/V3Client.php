@@ -118,6 +118,15 @@ final readonly class V3Client
             throw new SchemaDriftException('TMetric time balance response must be an object.');
         }
 
+        if (
+            $response->data !== []
+            && ! array_key_exists('month', $response->data)
+            && ! array_key_exists('today', $response->data)
+            && ! array_key_exists('week', $response->data)
+        ) {
+            throw new SchemaDriftException('TMetric time balance response uses an undocumented envelope.');
+        }
+
         return TimeBalanceSummary::fromArray($response->data);
     }
 
