@@ -71,7 +71,7 @@ final readonly class IndividualSchedule extends DataObject
         $result = [];
 
         foreach ($days as $day) {
-            if (! is_array($day) || array_is_list($day)) {
+            if (! is_array($day) || (array_is_list($day) && $day !== [])) {
                 throw new SchemaDriftException('TMetric schedule [days] contains a non-object item.');
             }
 
