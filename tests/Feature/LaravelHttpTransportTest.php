@@ -264,6 +264,29 @@ final class LaravelHttpTransportTest extends TestCase
         Http::assertSentCount(3);
     }
 
+    public function test_rate_limit_longer_than_retry_budget_is_not_retried_early(): void
+    {
+        Http::fake(['tmetric.test/*' => Http::response(
+            ['error' => 'rate limited'],
+            429,
+            ['Retry-After' => '120'],
+        )]);
+
+        $sleeper = new RecordingSleeper;
+        $transport = new LaravelHttpTransport(app(Factory::class), $sleeper);
+
+        try {
+            $transport->send($this->connection(), new Request('schedule.list', 'GET', '/test'));
+            self::fail('Expected rate limit exception.');
+        } catch (RateLimitedException $exception) {
+            self::assertSame(120, $exception->retryAfterSeconds);
+            self::assertSame(1, $exception->attempts);
+        }
+
+        self::assertSame([], $sleeper->milliseconds);
+        Http::assertSentCount(1);
+    }
+
     public function test_it_rejects_malformed_json(): void
     {
         Http::fake(['tmetric.test/*' => Http::response('<html>not-json</html>', 200)]);
