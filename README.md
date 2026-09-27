@@ -64,6 +64,13 @@ $entries = TMetric::connection()->v3()->timeEntries(
 
 $statuses = TMetric::connection()->v3()->timeTrackingStatuses();
 $reportUsers = TMetric::connection()->v3()->reportUsers();
+$schedules = TMetric::connection()->v3()->schedules(
+    startDate: new DateTimeImmutable('2026-09-01'),
+    endDate: new DateTimeImmutable('2026-09-30'),
+);
+
+$currentBalance = TMetric::connection()->v3()->timeBalance();
+$memberBalance = TMetric::connection()->v3()->timeBalance(userId: '101');
 ```
 
 The documented v3 time-entry project update is also available. Pass the fresh,
@@ -142,7 +149,23 @@ Available v3 reads:
 - time entries for a user and date range;
 - latest time entry;
 - current time-tracking statuses.
-- workspace users visible to the current user in project reports.
+- workspace users visible to the current user in project reports;
+- individual schedules for a required bounded date range;
+- current-user or explicit-user time balance.
+
+Schedule notes:
+- the package requires both `StartDate` and `EndDate` even though TMetric documents them as optional;
+- one `schedules()` call sends one provider request before common transport-level read retries;
+- there is no documented per-member Schedule selector;
+- v3.2.1 contradicts itself about Schedule root/user cardinality, so the package accepts only the explicit object/list forms present in that specification and rejects other envelopes;
+- `hours` is preserved without rounding and `date` is preserved with its original provider offset;
+- provider-backed schedule authority remains a consuming-application concern and must stay fail-closed until its real-workspace contract is verified.
+
+Time Balance notes:
+- `userId` is optional and must be a positive integer-compatible ID when supplied;
+- one `timeBalance()` call sends one provider request before common transport-level read retries;
+- missing periods/values remain missing and are not defaulted to zero;
+- the package never fans Balance out across users.
 
 Available v3 writes:
 
