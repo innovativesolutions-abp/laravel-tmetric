@@ -51,8 +51,8 @@ final readonly class IndividualSchedule extends DataObject
 
         $parsed = UserBasic::fromArray($user);
 
-        if (! preg_match('/^[1-9][0-9]*$/D', $parsed->id)) {
-            throw new SchemaDriftException('TMetric schedule user [id] must be a positive integer.');
+        if (! preg_match('/^-?[0-9]+$/D', $parsed->id)) {
+            throw new SchemaDriftException('TMetric schedule user [id] must be integer-compatible.');
         }
 
         return $parsed;
