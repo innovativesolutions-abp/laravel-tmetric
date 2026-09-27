@@ -90,6 +90,15 @@ final readonly class V3Client
             ),
         );
 
+        if ($response->status !== 200) {
+            throw new SchemaDriftException(
+                'TMetric schedule read returned an undocumented successful status.',
+                'schedule.list',
+                $response->status,
+                $response->attempts,
+            );
+        }
+
         return DataCollection::fromRows(
             $this->scheduleRows($response->data),
             IndividualSchedule::fromArray(...),
@@ -113,6 +122,15 @@ final readonly class V3Client
                 $query,
             ),
         );
+
+        if ($response->status !== 200) {
+            throw new SchemaDriftException(
+                'TMetric time balance read returned an undocumented successful status.',
+                'balance.get',
+                $response->status,
+                $response->attempts,
+            );
+        }
 
         if (array_is_list($response->data) && $response->data !== []) {
             throw new SchemaDriftException('TMetric time balance response must be an object.');
