@@ -145,6 +145,26 @@ final class V3ScheduleBalanceTest extends TestCase
         );
     }
 
+    public function test_schedule_rejects_invalid_member_identity(): void
+    {
+        foreach ([0, -1, '', 'abc', '1.5'] as $invalid) {
+            TMetric::fake([[
+                'user' => ['id' => $invalid],
+                'days' => [],
+            ]]);
+
+            try {
+                TMetric::connection()->v3()->schedules(
+                    new DateTimeImmutable('2026-09-28'),
+                    new DateTimeImmutable('2026-09-29'),
+                );
+                self::fail('Expected schedule member identity schema drift.');
+            } catch (SchemaDriftException) {
+                self::addToAssertionCount(1);
+            }
+        }
+    }
+
     public function test_schedule_rejects_multi_user_nested_list(): void
     {
         TMetric::fake([[
