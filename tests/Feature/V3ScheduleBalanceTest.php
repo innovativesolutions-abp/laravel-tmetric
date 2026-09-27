@@ -32,8 +32,10 @@ final class V3ScheduleBalanceTest extends TestCase
         self::assertCount(1, $schedules);
         self::assertInstanceOf(IndividualSchedule::class, $schedules->all()[0]);
         self::assertSame('101', $schedules->all()[0]->user?->id);
-        self::assertSame('2026-09-27T00:00:00+02:00', $schedules->all()[0]->days?->[0]->date ?? null);
-        self::assertSame(6, $schedules->all()[0]->days?->[0]->hours ?? null);
+        $day = $schedules->all()[0]->days[0] ?? null;
+        self::assertNotNull($day);
+        self::assertSame('2026-09-27T00:00:00+02:00', $day->date);
+        self::assertSame(6, $day->hours);
 
         $fake->assertRequestCount(1);
         TMetric::assertRequested(
@@ -72,8 +74,10 @@ final class V3ScheduleBalanceTest extends TestCase
 
         self::assertCount(2, $schedules);
         self::assertSame('101', $schedules->all()[0]->user?->id);
-        self::assertSame(6.125, $schedules->all()[0]->days?->[0]->hours ?? null);
-        self::assertSame('2026-09-28T00:00:00+05:30', $schedules->all()[0]->days?->[0]->date ?? null);
+        $day = $schedules->all()[0]->days[0] ?? null;
+        self::assertNotNull($day);
+        self::assertSame(6.125, $day->hours);
+        self::assertSame('2026-09-28T00:00:00+05:30', $day->date);
         self::assertSame([], $schedules->all()[1]->days);
         $fake->assertRequestCount(1);
     }
@@ -102,7 +106,7 @@ final class V3ScheduleBalanceTest extends TestCase
         self::assertNull($schedules->all()[0]->days);
         self::assertFalse(array_key_exists('days', $schedules->all()[0]->raw()));
 
-        $day = $schedules->all()[1]->days?->[0];
+        $day = $schedules->all()[1]->days[0] ?? null;
         self::assertNotNull($day);
         self::assertFalse($day->isWorking);
         self::assertSame(0, $day->hours);
