@@ -159,6 +159,8 @@ Schedule notes:
 - there is no documented per-member Schedule selector;
 - v3.2.1 contradicts itself about Schedule root/user cardinality, so the package accepts only the explicit object/list forms present in that specification and rejects other envelopes;
 - `hours` is preserved without rounding and `date` is preserved with its original provider offset;
+- Schedule response member IDs are integer-compatible; the package does not invent a provider minimum not present in OpenAPI;
+- only documented HTTP `200` success is accepted for Schedule/Balance reads;
 - provider-backed schedule authority remains a consuming-application concern and must stay fail-closed until its real-workspace contract is verified.
 
 Time Balance notes:
