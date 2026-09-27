@@ -49,7 +49,13 @@ final readonly class IndividualSchedule extends DataObject
             $user = $user[0];
         }
 
-        return UserBasic::fromArray($user);
+        $parsed = UserBasic::fromArray($user);
+
+        if (! preg_match('/^[1-9][0-9]*$/D', $parsed->id)) {
+            throw new SchemaDriftException('TMetric schedule user [id] must be a positive integer.');
+        }
+
+        return $parsed;
     }
 
     /**
