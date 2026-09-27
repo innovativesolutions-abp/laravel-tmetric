@@ -235,6 +235,19 @@ final class V3ScheduleBalanceTest extends TestCase
         }
     }
 
+    public function test_time_balance_rejects_undocumented_root_envelope(): void
+    {
+        TMetric::fake([[
+            'items' => [[
+                'requiredSeconds' => 1,
+            ]],
+        ]]);
+
+        $this->expectException(SchemaDriftException::class);
+
+        TMetric::connection()->v3()->timeBalance();
+    }
+
     public function test_time_balance_rejects_list_root_and_null_period_values(): void
     {
         TMetric::fake([[[
