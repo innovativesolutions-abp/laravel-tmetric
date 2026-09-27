@@ -36,7 +36,7 @@ final readonly class TimeBalanceSummary extends DataObject
 
         $value = $data[$field];
 
-        if (! is_array($value) || array_is_list($value)) {
+        if (! is_array($value) || (array_is_list($value) && $value !== [])) {
             throw new SchemaDriftException("TMetric response field [{$field}] must be an object when present.");
         }
 
